@@ -46,6 +46,19 @@ in CHF of all taxpayers (with and without federal tax liability).
 - The household categories change in 2020 (unmarried → single parents + others), so only `total` and `married` are comparable over the whole period.
 - BFS wages exist only for 7 large regions and only for even years.
 
+**Open points for the group:**
+- **Valais 2020 outlier:** median taxable income rose 6.6%, while the median canton grew only 0.6% that year. Over the same period the number of taxpayers fell by about 6,000. This is most likely a change in the source data, not real income growth. The value is kept and flagged (`yoy_outlier`); we still need to decide how to treat it in the analysis.
+- **Geneva:** median taxable income was lower in 2022 than in 2012 (index 98.7), while most other cantons grew 5–20%. This will directly affect the affordability results for GE.
+- **Choice of income measure:** ESTV taxable income and the BFS regional wage correlate only moderately (r = 0.46, survey years 2012–2022). BFS gives one wage per large region, not per canton, so the cantonal tax data stays the main measure and BFS is the cross-check.
+
+## Repository naming
+
+The course requires the repository to be named `CIP_HS26_105` (convention `CIP_[HS/FS][YEAR]_groupnumber`). It is currently called `CIP-project` and still needs to be renamed under GitHub → Settings → General → Repository name. After renaming, each team member should update their local remote with:
+
+```bash
+git remote set-url origin https://github.com/carya0001/CIP_HS26_105.git
+```
+
 ## Premium data
 
 *(to be added)*
