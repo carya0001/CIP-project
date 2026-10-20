@@ -2,4 +2,4 @@
 .DS_Store
 
 .venv/
-data/raw/
+data/processed/priminfo_premiums_2012_2022.csv
