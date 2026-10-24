@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Premiums vs. Paychecks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.3/plotly.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --text-1: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --context: #c9c8c1;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --band: rgba(42,120,214,0.16);
+  --neg: #e34948;
+  --mid: #f0efec;
+  --good: #006300;
+  --seq: #e6effb,#cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text-1: #f0efec;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --context: #4a4a46;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --band: rgba(57,135,229,0.22);
+    --neg: #e66767;
+    --mid: #383835;
+    --good: #0ca30c;
+    --seq: #20262e,#104281,#184f95,#1c5cab,#256abf,#3987e5,#6da7ec,#b7d3f6;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --text-1: #f0efec;
+  --text-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --context: #4a4a46;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --band: rgba(57,135,229,0.22);
+  --neg: #e66767;
+  --mid: #383835;
+  --good: #0ca30c;
+  --seq: #20262e,#104281,#184f95,#1c5cab,#256abf,#3987e5,#6da7ec,#b7d3f6;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--text-1);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 64px; }
+
+header { padding: 40px 0 20px; }
+.eyebrow { color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+.lede { color: var(--text-2); max-width: 760px; margin: 0; }
+
+/* Controls */
+.controls {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 16px; margin: 0 -16px 20px;
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.ctl { display: flex; align-items: center; gap: 10px; }
+.ctl label { color: var(--text-2); font-size: 13px; }
+.year-ctl { flex: 1 1 320px; }
+.year-ctl input[type=range] { flex: 1; accent-color: var(--s1); min-width: 120px; }
+.year-out { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 20px; min-width: 3ch; }
+button, select {
+  font: inherit; font-size: 14px; color: var(--text-1);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--axis); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.play { width: 38px; padding: 6px 0; text-align: center; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; padding: 2px; background: var(--surface); flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; border-radius: 7px; padding: 5px 10px; color: var(--text-2); }
+.seg button[aria-pressed=true] { background: var(--text-1); color: var(--surface); }
+.clear { color: var(--text-2); }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.kpi .k { color: var(--text-2); font-size: 13px; }
+.kpi .v { font-size: 26px; font-weight: 650; line-height: 1.2; margin-top: 4px; }
+.kpi .s { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.kpi .up { color: var(--good); }
+.kpi .down { color: var(--neg); }
+
+/* Cards */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 12px; min-width: 0; }
+.span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } .span-12 { grid-column: span 12; }
+.card h2 { font-size: 17px; margin: 0 0 2px; }
+.card .sub { color: var(--text-2); font-size: 13px; margin: 0 0 10px; }
+.card .take { color: var(--text-2); font-size: 13px; border-top: 1px solid var(--border); margin: 10px 0 0; padding-top: 10px; }
+.card .take b { color: var(--text-1); font-weight: 600; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-2); font-size: 12px; margin: 4px 0 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.legend i.line { height: 2px; border-radius: 1px; vertical-align: 3px; }
+.legend i.dot { border-radius: 50%; }
+
+/* Tile map */
+#tilemap svg { width: 100%; height: auto; display: block; }
+#tilemap .tile { cursor: pointer; transition: fill .45s ease; }
+#tilemap .tile-g:hover .tile { stroke: var(--text-1); stroke-width: 2; }
+#tilemap .sel .tile { stroke: var(--s2); stroke-width: 3; }
+#tilemap text { pointer-events: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.scale { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.scale .bar { flex: 1; height: 10px; border-radius: 5px; }
+
+.tip {
+  position: fixed; z-index: 20; pointer-events: none; opacity: 0; transition: opacity .12s;
+  background: var(--surface); color: var(--text-1); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0,0,0,.14); border-radius: 10px; padding: 10px 12px; font-size: 13px; min-width: 180px;
+}
+.tip .t { font-weight: 650; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 16px; color: var(--text-2); }
+.tip .r span:last-child { color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* Table */
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--text-2); font-size: 14px; }
+.tbl-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { color: var(--text-2); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface); }
+tr.sel td { background: color-mix(in srgb, var(--s2) 14%, transparent); }
+tbody tr { cursor: pointer; }
+
+footer { color: var(--muted); font-size: 12px; margin-top: 28px; }
+footer a { color: var(--text-2); }
+
+@media (max-width: 900px) {
+  .span-5, .span-6, .span-7 { grid-column: span 12; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .kpi .v { font-size: 21px; }
+  .controls { gap: 10px; position: static; }
+}
+.lede a, footer a, .note a { color: var(--s1); }
+.note { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-top: 16px; color: var(--text-2); font-size: 13px; }
+.note h3 { color: var(--text-1); font-size: 14px; margin: 0 0 6px; }
+.note ul { margin: 0; padding-left: 18px; }
+.kpi .v small { font-size: 15px; font-weight: 500; color: var(--text-2); }
+.vs { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.vs span { white-space: nowrap; }
+.prem { color: var(--s2); } .inc { color: var(--s1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">CIP HS26 · Group 105 · Premiums vs. Paychecks</p>
+    <h1>Health premiums grew almost three times faster than incomes</h1>
+    <p class="lede">Annual health insurance premium of an adult (standard model, CHF 300 deductible) compared with the
+      median taxable income in each canton, 2012–2022. Sources: FOPH priminfo premium overviews and ESTV tax statistics.
+      See also the <a href="income_dashboard.html">income dashboard</a>.</p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Dashboard controls">
+    <div class="ctl year-ctl">
+      <button class="play" id="play" aria-label="Play years">▶</button>
+      <input type="range" id="year" min="2012" max="2022" step="1" value="2022" aria-label="Year">
+      <span class="year-out" id="yearOut">2022</span>
+    </div>
+    <div class="ctl">
+      <label>Accident cover</label>
+      <div class="seg" id="cover" role="group" aria-label="Accident cover">
+        <button data-k="with" aria-pressed="true">With</button>
+        <button data-k="without" aria-pressed="false">Without</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="canton">Canton</label>
+      <select id="canton"><option value="">None</option></select>
+      <button class="clear" id="clear" hidden>Clear</button>
+    </div>
+  </div>
+
+  <section class="kpis" id="kpis" aria-live="polite"></section>
+
+  <div class="grid">
+    <article class="card span-12">
+      <h2>The scissors: premiums vs. income since 2012</h2>
+      <p class="sub">Index, 2012 = 100. Lines show the typical (median) canton, bands the middle 80% of cantons (P10–P90).</p>
+      <div class="legend">
+        <span><i class="line" style="background:var(--s2)"></i>Premium</span>
+        <span><i class="line" style="background:var(--s1)"></i>Median taxable income</span>
+        <span><i style="background:var(--band)"></i>Range of cantons</span>
+        <span id="selLegend" hidden><i class="line" style="background:var(--text-1)"></i><span id="selLegendName"></span> (dashed)</span>
+      </div>
+      <div id="scissors" style="height:400px"></div>
+      <p class="take" id="scissorsTake"></p>
+    </article>
+
+    <article class="card span-5">
+      <div class="card-head">
+        <h2 id="mapTitle">Premium burden</h2>
+        <div class="seg" id="tileMeasure" role="group" aria-label="Tile measure"></div>
+      </div>
+      <p class="sub" id="mapSub"></p>
+      <div id="tilemap"></div>
+      <div class="scale"><span id="scaleMin"></span><div class="bar" id="scaleBar"></div><span id="scaleMax"></span></div>
+      <p class="take">The burden is highest in the west (<b>Geneva</b>, <b>Neuchâtel</b>, <b>Vaud</b>, <b>Jura</b>) and
+        in <b>Basel-Stadt</b> and <b>Ticino</b>, and lowest in central Switzerland, where incomes are high and premiums low.</p>
+    </article>
+
+    <article class="card span-7">
+      <h2>Where cantons sit: income vs. premium</h2>
+      <p class="sub">Each bubble is a canton (size = taxpayers). Dashed lines mark equal burden. Press ▶ to watch the
+        cantons climb across the lines.</p>
+      <div id="scatter" style="height:520px"></div>
+      <p class="take">Cantons with lower incomes tend to pay <b>higher</b> premiums (r = <span id="corr"></span>), so
+        the two effects add up instead of cancelling out.</p>
+    </article>
+
+    <article class="card span-6">
+      <h2 id="dumbTitle">Burden 2012 → 2022</h2>
+      <p class="sub">Premium as % of median taxable income, sorted by how much it rose.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--context)"></i>2012</span>
+        <span><i class="dot" style="background:var(--s2)"></i><span id="dumbYear">2022</span></span>
+      </div>
+      <div id="dumbbell" style="height:620px"></div>
+      <p class="take"><b>Geneva</b> and <b>Neuchâtel</b> lost the most ground: their premiums rose while median income
+        stood still. In <b>Zug</b> and <b>Bern</b> the burden barely moved.</p>
+    </article>
+
+    <article class="card span-6">
+      <h2 id="growthTitle">Growth 2012 → 2022</h2>
+      <p class="sub">Change in premium and in median taxable income per canton, sorted by the gap between them.</p>
+      <div class="legend">
+        <span><i style="background:var(--s2)"></i>Premium</span>
+        <span><i style="background:var(--s1)"></i>Median taxable income</span>
+      </div>
+      <div id="growth" style="height:620px"></div>
+      <p class="take" id="growthTake"></p>
+    </article>
+
+    <article class="card span-12">
+      <h2>Burden by canton and year</h2>
+      <p class="sub">Premium as % of median taxable income. Cantons sorted by their burden in the last year.</p>
+      <div id="heatmap" style="height:640px"></div>
+      <p class="take">Every canton ends the decade with a higher burden than it started with. Small dips, such as 2021 → 2022 in several cantons, never undo the rise.</p>
+    </article>
+
+    <article class="card span-12">
+      <h2 id="accTitle">With vs. without accident cover</h2>
+      <p class="sub">Employees are insured against accidents through their employer and can drop accident cover from
+        their health insurance. Annual premium per canton, sorted by the premium with accident cover.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s2)"></i>With accident cover</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Without accident cover</span>
+      </div>
+      <div id="accident" style="height:380px"></div>
+      <p class="take" id="accTake"></p>
+    </article>
+  </div>
+
+  <details>
+    <summary>Show the data table for <span id="tblYear">2022</span></summary>
+    <div class="tbl-wrap"><table id="table"></table></div>
+  </details>
+
+  <section class="note">
+    <h3>How to read the burden</h3>
+    <ul>
+      <li><b>Premium</b>: average monthly premium of an adult in the standard model with CHF 300 deductible, mean over
+        all insurers and then over the premium regions of a canton (each counted equally), × 12.</li>
+      <li><b>Income</b>: median taxable income of all taxpayers (ESTV). Taxable income is income after deductions and
+        counted per tax unit, so a married couple is one unit.</li>
+      <li>The burden compares one adult's premium with one tax unit's income. It is an indicator for comparing cantons
+        and years, not the real share of a household budget. Premium subsidies are not deducted.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Sources: FOPH priminfo archive "Prämienübersicht" 2012–2022 (PDF, scraped and parsed); ESTV "Statistische Kennzahlen
+    natürliche Personen" 2012–2022. Built by <code>visualizations/build_affordability_dashboard.py</code>.
+  </footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const D = {"panel":[{"year":2012,"c":"ZH","name":"Zürich","region":"Zürich","stpf":860401,"income":50000.0,"pm_with":377.32,"py_with":4527.87,"pm_without":354.6,"py_without":4255.2,"b_with":9.05574,"b_without":8.5104},{"year":2012,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":630000,"income":41900.0,"pm_with":419.1,"py_with":5029.17,"pm_without":393.61,"py_without":4723.27,"b_with":12.002792362768497,"b_without":11.272720763723152},{"year":2012,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":227146,"income":44700.0,"pm_with":329.58,"py_with":3954.93,"pm_without":309.55,"py_without":3714.62,"b_with":8.847718120805368,"b_without":8.310111856823266},{"year":2012,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":20489,"income":43600.0,"pm_with":315.27,"py_with":3783.23,"pm_without":296.11,"py_without":3553.27,"b_with":8.677133027522936,"b_without":8.149701834862386},{"year":2012,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":89211,"income":48400.0,"pm_with":326.44,"py_with":3917.26,"pm_without":306.49,"py_without":3677.83,"b_with":8.093512396694216,"b_without":7.598822314049587},{"year":2012,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":21807,"income":43700.0,"pm_with":306.43,"py_with":3677.19,"pm_without":287.87,"py_without":3454.49,"b_with":8.414622425629291,"b_without":7.905011441647597},{"year":2012,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":25161,"income":49400.0,"pm_with":286.1,"py_with":3433.17,"pm_without":268.74,"py_without":3224.91,"b_with":6.9497368421052625,"b_without":6.528157894736841},{"year":2012,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23298,"income":42600.0,"pm_with":325.44,"py_with":3905.34,"pm_without":305.37,"py_without":3664.49,"b_with":9.167464788732396,"b_without":8.602089201877934},{"year":2012,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":68323,"income":56500.0,"pm_with":320.49,"py_with":3845.83,"pm_without":301.01,"py_without":3612.15,"b_with":6.806778761061946,"b_without":6.3931858407079645},{"year":2012,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":165178,"income":43700.0,"pm_with":366.6,"py_with":4399.24,"pm_without":343.9,"py_without":4126.81,"b_with":10.06691075514874,"b_without":9.443501144164761},{"year":2012,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":161860,"income":45200.0,"pm_with":356.19,"py_with":4274.27,"pm_without":334.46,"py_without":4013.48,"b_with":9.456349557522124,"b_without":8.879380530973451},{"year":2012,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":122272,"income":44200.0,"pm_with":502.67,"py_with":6032.03,"pm_without":471.72,"py_without":5660.63,"b_with":13.64712669683258,"b_without":12.80685520361991},{"year":2012,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":165581,"income":51700.0,"pm_with":391.3,"py_with":4695.64,"pm_without":367.22,"py_without":4406.63,"b_with":9.082475822050291,"b_without":8.523462282398453},{"year":2012,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":46540,"income":44100.0,"pm_with":357.86,"py_with":4294.36,"pm_without":335.84,"py_without":4030.08,"b_with":9.737777777777778,"b_without":9.138503401360545},{"year":2012,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":31941,"income":42900.0,"pm_with":302.54,"py_with":3630.43,"pm_without":283.82,"py_without":3405.89,"b_with":8.462540792540791,"b_without":7.939137529137528},{"year":2012,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9194,"income":43100.0,"pm_with":284.73,"py_with":3416.8,"pm_without":267.12,"py_without":3205.49,"b_with":7.927610208816706,"b_without":7.437331786542922},{"year":2012,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":286234,"income":42900.0,"pm_with":333.2,"py_with":3998.43,"pm_without":312.62,"py_without":3751.45,"b_with":9.32034965034965,"b_without":8.744638694638693},{"year":2012,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":127002,"income":40200.0,"pm_with":317.94,"py_with":3815.31,"pm_without":298.83,"py_without":3585.93,"b_with":9.490820895522388,"b_without":8.920223880597014},{"year":2012,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":364231,"income":49600.0,"pm_with":347.6,"py_with":4171.22,"pm_without":326.38,"py_without":3916.56,"b_with":8.409717741935484,"b_without":7.8962903225806444},{"year":2012,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":149358,"income":44900.0,"pm_with":344.26,"py_with":4131.12,"pm_without":323.14,"py_without":3877.73,"b_with":9.200712694877506,"b_without":8.636369710467706},{"year":2012,"c":"TI","name":"Tessin","region":"Tessin","stpf":216105,"income":38300.0,"pm_with":405.6,"py_with":4867.24,"pm_without":380.56,"py_without":4566.7,"b_with":12.708198433420364,"b_without":11.92349869451697},{"year":2012,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":420431,"income":44100.0,"pm_with":440.55,"py_with":5286.54,"pm_without":413.25,"py_without":4958.99,"b_with":11.987619047619047,"b_without":11.244875283446712},{"year":2012,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":226988,"income":34200.0,"pm_with":328.08,"py_with":3936.95,"pm_without":307.65,"py_without":3691.84,"b_with":11.51154970760234,"b_without":10.794853801169591},{"year":2012,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":103783,"income":41700.0,"pm_with":425.08,"py_with":5100.91,"pm_without":398.66,"py_without":4783.96,"b_with":12.232398081534772,"b_without":11.472326139088729},{"year":2012,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":254540,"income":45600.0,"pm_with":491.69,"py_with":5900.31,"pm_without":461.2,"py_without":5534.43,"b_with":12.939276315789474,"b_without":12.136907894736842},{"year":2012,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":43642,"income":38500.0,"pm_with":406.85,"py_with":4882.2,"pm_without":381.63,"py_without":4579.51,"b_with":12.68103896103896,"b_without":11.89483116883117},{"year":2013,"c":"ZH","name":"Zürich","region":"Zürich","stpf":872228,"income":50000.0,"pm_with":385.84,"py_with":4630.05,"pm_without":362.54,"py_without":4350.48,"b_with":9.2601,"b_without":8.700959999999998},{"year":2013,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":635951,"income":42300.0,"pm_with":427.67,"py_with":5132.04,"pm_without":401.81,"py_without":4821.72,"b_with":12.132482269503546,"b_without":11.39886524822695},{"year":2013,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":230186,"income":45500.0,"pm_with":337.83,"py_with":4054.0,"pm_without":317.36,"py_without":3808.35,"b_with":8.90989010989011,"b_without":8.37},{"year":2013,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":20659,"income":44000.0,"pm_with":323.86,"py_with":3886.26,"pm_without":304.07,"py_without":3648.87,"b_with":8.83240909090909,"b_without":8.292886363636363},{"year":2013,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":90670,"income":48800.0,"pm_with":335.75,"py_with":4028.99,"pm_without":315.29,"py_without":3783.53,"b_with":8.256127049180327,"b_without":7.753135245901639},{"year":2013,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22142,"income":44200.0,"pm_with":314.56,"py_with":3774.7,"pm_without":295.42,"py_without":3544.98,"b_with":8.540045248868777,"b_without":8.020316742081448},{"year":2013,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":25361,"income":49700.0,"pm_with":296.06,"py_with":3552.69,"pm_without":278.04,"py_without":3336.51,"b_with":7.148269617706237,"b_without":6.713299798792757},{"year":2013,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23411,"income":43000.0,"pm_with":335.24,"py_with":4022.9,"pm_without":314.45,"py_without":3773.43,"b_with":9.355581395348837,"b_without":8.775418604651163},{"year":2013,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":69522,"income":56800.0,"pm_with":327.83,"py_with":3933.92,"pm_without":307.94,"py_without":3695.32,"b_with":6.925915492957746,"b_without":6.505845070422535},{"year":2013,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":170328,"income":43900.0,"pm_with":376.57,"py_with":4518.89,"pm_without":353.21,"py_without":4238.54,"b_with":10.293599088838269,"b_without":9.65498861047836},{"year":2013,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":163910,"income":45400.0,"pm_with":364.11,"py_with":4369.33,"pm_without":342.03,"py_without":4104.31,"b_with":9.624074889867842,"b_without":9.040330396475772},{"year":2013,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":123212,"income":44700.0,"pm_with":514.55,"py_with":6174.64,"pm_without":483.02,"py_without":5796.19,"b_with":13.81351230425056,"b_without":12.966868008948545},{"year":2013,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":167319,"income":52000.0,"pm_with":400.53,"py_with":4806.37,"pm_without":376.03,"py_without":4512.31,"b_with":9.243019230769232,"b_without":8.677519230769231},{"year":2013,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":47285,"income":44600.0,"pm_with":367.23,"py_with":4406.8,"pm_without":344.6,"py_without":4135.21,"b_with":9.880717488789239,"b_without":9.271771300448432},{"year":2013,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":32322,"income":43500.0,"pm_with":312.79,"py_with":3753.44,"pm_without":293.39,"py_without":3520.66,"b_with":8.628597701149426,"b_without":8.093471264367816},{"year":2013,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9236,"income":43850.0,"pm_with":293.64,"py_with":3523.69,"pm_without":275.45,"py_without":3305.4,"b_with":8.035781071835805,"b_without":7.537970353477766},{"year":2013,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":289841,"income":43400.0,"pm_with":341.39,"py_with":4096.67,"pm_without":320.2,"py_without":3842.43,"b_with":9.439331797235024,"b_without":8.853525345622119},{"year":2013,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":127631,"income":40600.0,"pm_with":325.24,"py_with":3902.82,"pm_without":305.65,"py_without":3667.8,"b_with":9.612857142857143,"b_without":9.033990147783252},{"year":2013,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":370463,"income":49800.0,"pm_with":355.5,"py_with":4265.95,"pm_without":333.93,"py_without":4007.14,"b_with":8.566164658634538,"b_without":8.046465863453815},{"year":2013,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":152496,"income":45500.0,"pm_with":351.3,"py_with":4215.6,"pm_without":329.7,"py_without":3956.4,"b_with":9.265054945054946,"b_without":8.695384615384615},{"year":2013,"c":"TI","name":"Tessin","region":"Tessin","stpf":220667,"income":38300.0,"pm_with":412.84,"py_with":4954.11,"pm_without":387.28,"py_without":4647.32,"b_with":12.935013054830286,"b_without":12.133994778067885},{"year":2013,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":429423,"income":44300.0,"pm_with":455.54,"py_with":5466.5,"pm_without":427.28,"py_without":5127.4,"b_with":12.339729119638825,"b_without":11.574266365688485},{"year":2013,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":230829,"income":34500.0,"pm_with":336.68,"py_with":4040.15,"pm_without":315.68,"py_without":3788.2,"b_with":11.710579710144927,"b_without":10.980289855072463},{"year":2013,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":104981,"income":41400.0,"pm_with":435.62,"py_with":5227.41,"pm_without":408.49,"py_without":4901.91,"b_with":12.62659420289855,"b_without":11.84036231884058},{"year":2013,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":258615,"income":45100.0,"pm_with":505.59,"py_with":6067.02,"pm_without":474.21,"py_without":5690.49,"b_with":13.45237250554324,"b_without":12.61749445676275},{"year":2013,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":44245,"income":38700.0,"pm_with":414.79,"py_with":4977.48,"pm_without":389.09,"py_without":4669.05,"b_with":12.861705426356588,"b_without":12.064728682170543},{"year":2014,"c":"ZH","name":"Zürich","region":"Zürich","stpf":875801,"income":50600.0,"pm_with":395.44,"py_with":4745.24,"pm_without":371.37,"py_without":4456.47,"b_with":9.37794466403162,"b_without":8.807252964426878},{"year":2014,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":639758,"income":42600.0,"pm_with":435.46,"py_with":5225.49,"pm_without":409.01,"py_without":4908.09,"b_with":12.266408450704224,"b_without":11.521338028169016},{"year":2014,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":233132,"income":46000.0,"pm_with":348.84,"py_with":4186.06,"pm_without":327.53,"py_without":3930.33,"b_with":9.10013043478261,"b_without":8.544195652173912},{"year":2014,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":20707,"income":45100.0,"pm_with":333.53,"py_with":4002.31,"pm_without":313.07,"py_without":3756.82,"b_with":8.874301552106429,"b_without":8.329977827050998},{"year":2014,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":91874,"income":49500.0,"pm_with":346.06,"py_with":4152.69,"pm_without":324.82,"py_without":3897.89,"b_with":8.389272727272726,"b_without":7.8745252525252525},{"year":2014,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":21922,"income":45500.0,"pm_with":323.02,"py_with":3876.29,"pm_without":303.26,"py_without":3639.1,"b_with":8.519318681318682,"b_without":7.998021978021979},{"year":2014,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":25484,"income":50200.0,"pm_with":306.22,"py_with":3674.6,"pm_without":287.49,"py_without":3449.82,"b_with":7.319920318725099,"b_without":6.872151394422311},{"year":2014,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23583,"income":43400.0,"pm_with":346.26,"py_with":4155.1,"pm_without":324.71,"py_without":3896.56,"b_with":9.573963133640554,"b_without":8.978248847926267},{"year":2014,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":70677,"income":57300.0,"pm_with":336.61,"py_with":4039.3,"pm_without":316.04,"py_without":3792.5,"b_with":7.049389179755671,"b_without":6.618673647469459},{"year":2014,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":173745,"income":44600.0,"pm_with":387.67,"py_with":4652.0,"pm_without":363.51,"py_without":4362.15,"b_with":10.430493273542602,"b_without":9.78060538116592},{"year":2014,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":165307,"income":46100.0,"pm_with":375.23,"py_with":4502.81,"pm_without":352.4,"py_without":4228.75,"b_with":9.767483731019523,"b_without":9.172993492407809},{"year":2014,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":124042,"income":45000.0,"pm_with":527.66,"py_with":6331.87,"pm_without":495.18,"py_without":5942.21,"b_with":14.07082222222222,"b_without":13.204911111111112},{"year":2014,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":168973,"income":52500.0,"pm_with":412.41,"py_with":4948.96,"pm_without":387.05,"py_without":4644.61,"b_with":9.426590476190476,"b_without":8.84687619047619},{"year":2014,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":47672,"income":45100.0,"pm_with":378.5,"py_with":4541.99,"pm_without":355.06,"py_without":4260.71,"b_with":10.070931263858093,"b_without":9.447250554323725},{"year":2014,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":32571,"income":44000.0,"pm_with":325.45,"py_with":3905.45,"pm_without":305.35,"py_without":3664.23,"b_with":8.876022727272726,"b_without":8.327795454545454},{"year":2014,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9302,"income":44600.0,"pm_with":303.24,"py_with":3638.86,"pm_without":284.5,"py_without":3413.97,"b_with":8.158878923766816,"b_without":7.654641255605381},{"year":2014,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":292334,"income":43900.0,"pm_with":351.88,"py_with":4222.59,"pm_without":330.02,"py_without":3960.28,"b_with":9.61865603644647,"b_without":9.021138952164009},{"year":2014,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":128177,"income":41100.0,"pm_with":336.04,"py_with":4032.52,"pm_without":315.72,"py_without":3788.59,"b_with":9.81148418491484,"b_without":9.217980535279805},{"year":2014,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":375743,"income":50200.0,"pm_with":366.48,"py_with":4397.8,"pm_without":344.08,"py_without":4128.91,"b_with":8.760557768924302,"b_without":8.2249203187251},{"year":2014,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":154462,"income":46100.0,"pm_with":360.46,"py_with":4325.56,"pm_without":338.2,"py_without":4058.37,"b_with":9.38299349240781,"b_without":8.803405639913233},{"year":2014,"c":"TI","name":"Tessin","region":"Tessin","stpf":221821,"income":38300.0,"pm_with":422.31,"py_with":5067.67,"pm_without":396.02,"py_without":4752.23,"b_with":13.231514360313316,"b_without":12.407911227154047},{"year":2014,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":436658,"income":44600.0,"pm_with":468.46,"py_with":5621.52,"pm_without":439.28,"py_without":5271.4,"b_with":12.604304932735428,"b_without":11.819282511210762},{"year":2014,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":234245,"income":34800.0,"pm_with":346.81,"py_with":4161.75,"pm_without":325.08,"py_without":3901.0,"b_with":11.95905172413793,"b_without":11.209770114942529},{"year":2014,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":105700,"income":41400.0,"pm_with":447.05,"py_with":5364.57,"pm_without":419.08,"py_without":5028.99,"b_with":12.957898550724636,"b_without":12.14731884057971},{"year":2014,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":271032,"income":44700.0,"pm_with":523.82,"py_with":6285.86,"pm_without":491.16,"py_without":5893.9,"b_with":14.062326621923937,"b_without":13.18545861297539},{"year":2014,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":44911,"income":39200.0,"pm_with":425.89,"py_with":5110.62,"pm_without":399.38,"py_without":4792.54,"b_with":13.037295918367347,"b_without":12.225867346938776},{"year":2015,"c":"ZH","name":"Zürich","region":"Zürich","stpf":903334,"income":50200.0,"pm_with":413.54,"py_with":4962.43,"pm_without":388.17,"py_without":4658.06,"b_with":9.885318725099603,"b_without":9.279003984063745},{"year":2015,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":647483,"income":43000.0,"pm_with":448.88,"py_with":5386.62,"pm_without":421.39,"py_without":5056.7,"b_with":12.527023255813955,"b_without":11.759767441860465},{"year":2015,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":235831,"income":46200.0,"pm_with":366.1,"py_with":4393.23,"pm_without":343.55,"py_without":4122.6,"b_with":9.509155844155844,"b_without":8.923376623376624},{"year":2015,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":20809,"income":45400.0,"pm_with":345.88,"py_with":4150.59,"pm_without":324.56,"py_without":3894.73,"b_with":9.14226872246696,"b_without":8.578700440528635},{"year":2015,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":92930,"income":49600.0,"pm_with":362.83,"py_with":4353.91,"pm_without":340.39,"py_without":4084.62,"b_with":8.778044354838709,"b_without":8.235120967741935},{"year":2015,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22069,"income":46100.0,"pm_with":340.15,"py_with":4081.81,"pm_without":319.22,"py_without":3830.61,"b_with":8.854251626898048,"b_without":8.30934924078091},{"year":2015,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":25728,"income":50600.0,"pm_with":323.75,"py_with":3884.95,"pm_without":303.82,"py_without":3645.81,"b_with":7.677766798418972,"b_without":7.205158102766799},{"year":2015,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23688,"income":43500.0,"pm_with":362.14,"py_with":4345.73,"pm_without":339.5,"py_without":4074.05,"b_with":9.990183908045976,"b_without":9.365632183908046},{"year":2015,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":71738,"income":57700.0,"pm_with":349.32,"py_with":4191.83,"pm_without":327.8,"py_without":3933.6,"b_with":7.264870017331022,"b_without":6.817331022530329},{"year":2015,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":176489,"income":44700.0,"pm_with":407.38,"py_with":4888.57,"pm_without":381.83,"py_without":4582.0,"b_with":10.936398210290827,"b_without":10.250559284116331},{"year":2015,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":166904,"income":46200.0,"pm_with":393.82,"py_with":4725.81,"pm_without":369.64,"py_without":4435.73,"b_with":10.229025974025975,"b_without":9.601147186147186},{"year":2015,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":124111,"income":45000.0,"pm_with":549.43,"py_with":6593.16,"pm_without":515.3,"py_without":6183.63,"b_with":14.651466666666666,"b_without":13.7414},{"year":2015,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":170399,"income":52600.0,"pm_with":432.55,"py_with":5190.61,"pm_without":405.73,"py_without":4868.75,"b_with":9.868079847908746,"b_without":9.256178707224334},{"year":2015,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":48031,"income":45200.0,"pm_with":396.65,"py_with":4759.8,"pm_without":371.94,"py_without":4463.3,"b_with":10.530530973451329,"b_without":9.874557522123894},{"year":2015,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":32831,"income":43900.0,"pm_with":343.17,"py_with":4118.01,"pm_without":321.85,"py_without":3862.19,"b_with":9.380432801822323,"b_without":8.797699316628702},{"year":2015,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9407,"income":45000.0,"pm_with":316.13,"py_with":3793.51,"pm_without":296.48,"py_without":3557.72,"b_with":8.430022222222222,"b_without":7.9060444444444435},{"year":2015,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":297042,"income":44200.0,"pm_with":371.19,"py_with":4454.28,"pm_without":348.02,"py_without":4176.18,"b_with":10.077556561085972,"b_without":9.448371040723982},{"year":2015,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":128463,"income":41200.0,"pm_with":350.25,"py_with":4203.0,"pm_without":328.96,"py_without":3947.51,"b_with":10.201456310679612,"b_without":9.581334951456311},{"year":2015,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":380468,"income":50300.0,"pm_with":382.41,"py_with":4588.95,"pm_without":358.84,"py_without":4306.09,"b_with":9.123161033797217,"b_without":8.560815109343936},{"year":2015,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":156676,"income":46300.0,"pm_with":374.65,"py_with":4495.79,"pm_without":351.41,"py_without":4216.91,"b_with":9.71012958963283,"b_without":9.1077969762419},{"year":2015,"c":"TI","name":"Tessin","region":"Tessin","stpf":223372,"income":38300.0,"pm_with":439.74,"py_with":5276.94,"pm_without":412.18,"py_without":4946.22,"b_with":13.777911227154046,"b_without":12.914412532637076},{"year":2015,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":445227,"income":44600.0,"pm_with":489.2,"py_with":5870.43,"pm_without":458.57,"py_without":5502.81,"b_with":13.162399103139014,"b_without":12.338139013452915},{"year":2015,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":237283,"income":34900.0,"pm_with":362.94,"py_with":4355.29,"pm_without":340.09,"py_without":4081.1,"b_with":12.479340974212034,"b_without":11.693696275071632},{"year":2015,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":106602,"income":41200.0,"pm_with":472.42,"py_with":5669.08,"pm_without":442.69,"py_without":5312.31,"b_with":13.759902912621358,"b_without":12.893956310679613},{"year":2015,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":275626,"income":44100.0,"pm_with":548.16,"py_with":6577.89,"pm_without":513.81,"py_without":6165.66,"b_with":14.915850340136055,"b_without":13.98108843537415},{"year":2015,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":45322,"income":39000.0,"pm_with":450.28,"py_with":5403.42,"pm_without":422.06,"py_without":5064.78,"b_with":13.854923076923075,"b_without":12.986615384615385},{"year":2016,"c":"ZH","name":"Zürich","region":"Zürich","stpf":892574,"income":51900.0,"pm_with":430.81,"py_with":5169.66,"pm_without":404.39,"py_without":4852.71,"b_with":9.960809248554913,"b_without":9.350115606936416},{"year":2016,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":651368,"income":44200.0,"pm_with":462.0,"py_with":5543.95,"pm_without":433.82,"py_without":5205.79,"b_with":12.54287330316742,"b_without":11.777805429864253},{"year":2016,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":237587,"income":47400.0,"pm_with":384.62,"py_with":4615.44,"pm_without":360.98,"py_without":4331.76,"b_with":9.737215189873417,"b_without":9.138734177215191},{"year":2016,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":20897,"income":46900.0,"pm_with":357.18,"py_with":4286.14,"pm_without":335.24,"py_without":4022.92,"b_with":9.138891257995736,"b_without":8.577654584221749},{"year":2016,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":93932,"income":51600.0,"pm_with":377.66,"py_with":4531.94,"pm_without":354.36,"py_without":4252.26,"b_with":8.78282945736434,"b_without":8.240813953488372},{"year":2016,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22237,"income":47400.0,"pm_with":353.87,"py_with":4246.43,"pm_without":332.14,"py_without":3985.71,"b_with":8.958713080168778,"b_without":8.40867088607595},{"year":2016,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":25841,"income":51900.0,"pm_with":342.18,"py_with":4106.17,"pm_without":321.22,"py_without":3854.63,"b_with":7.911695568400772,"b_without":7.427032755298652},{"year":2016,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23741,"income":44600.0,"pm_with":376.26,"py_with":4515.17,"pm_without":352.79,"py_without":4233.44,"b_with":10.123699551569507,"b_without":9.49201793721973},{"year":2016,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":72857,"income":58800.0,"pm_with":362.95,"py_with":4355.45,"pm_without":340.67,"py_without":4088.09,"b_with":7.407227891156462,"b_without":6.952534013605442},{"year":2016,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":179939,"income":46100.0,"pm_with":423.49,"py_with":5081.83,"pm_without":397.11,"py_without":4765.3,"b_with":11.02349240780911,"b_without":10.336876355748373},{"year":2016,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":167940,"income":47200.0,"pm_with":412.6,"py_with":4951.25,"pm_without":387.37,"py_without":4648.43,"b_with":10.489936440677965,"b_without":9.848368644067797},{"year":2016,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":124330,"income":45300.0,"pm_with":568.17,"py_with":6817.98,"pm_without":533.03,"py_without":6396.33,"b_with":15.05072847682119,"b_without":14.119933774834436},{"year":2016,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":171495,"income":53000.0,"pm_with":451.42,"py_with":5417.07,"pm_without":423.48,"py_without":5081.79,"b_with":10.220886792452829,"b_without":9.588283018867925},{"year":2016,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":48288,"income":46200.0,"pm_with":412.48,"py_with":4949.76,"pm_without":386.88,"py_without":4642.51,"b_with":10.713766233766234,"b_without":10.048722943722945},{"year":2016,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":34018,"income":44800.0,"pm_with":364.58,"py_with":4374.95,"pm_without":341.97,"py_without":4103.69,"b_with":9.765513392857143,"b_without":9.16002232142857},{"year":2016,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9454,"income":46550.0,"pm_with":329.59,"py_with":3955.09,"pm_without":309.18,"py_without":3710.2,"b_with":8.496433941997852,"b_without":7.970354457572502},{"year":2016,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":298643,"income":45100.0,"pm_with":389.42,"py_with":4673.07,"pm_without":365.16,"py_without":4381.94,"b_with":10.361574279379157,"b_without":9.716053215077604},{"year":2016,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":129363,"income":42000.0,"pm_with":366.1,"py_with":4393.23,"pm_without":343.9,"py_without":4126.8,"b_with":10.460071428571426,"b_without":9.825714285714286},{"year":2016,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":385567,"income":51700.0,"pm_with":397.76,"py_with":4773.09,"pm_without":373.32,"py_without":4479.8,"b_with":9.232282398452611,"b_without":8.664990328820116},{"year":2016,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":158718,"income":47800.0,"pm_with":388.52,"py_with":4662.28,"pm_without":364.5,"py_without":4374.03,"b_with":9.753723849372383,"b_without":9.150690376569038},{"year":2016,"c":"TI","name":"Tessin","region":"Tessin","stpf":224834,"income":38700.0,"pm_with":458.81,"py_with":5505.7,"pm_without":430.28,"py_without":5163.33,"b_with":14.226614987080103,"b_without":13.341937984496125},{"year":2016,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":452934,"income":45600.0,"pm_with":508.24,"py_with":6098.82,"pm_without":476.66,"py_without":5719.86,"b_with":13.374605263157893,"b_without":12.543552631578947},{"year":2016,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":238185,"income":36300.0,"pm_with":377.32,"py_with":4527.84,"pm_without":353.74,"py_without":4244.92,"b_with":12.473388429752067,"b_without":11.693994490358127},{"year":2016,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":107803,"income":41600.0,"pm_with":499.81,"py_with":5997.66,"pm_without":468.59,"py_without":5623.11,"b_with":14.417451923076923,"b_without":13.517091346153846},{"year":2016,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":281155,"income":43600.0,"pm_with":573.01,"py_with":6876.12,"pm_without":537.4,"py_without":6448.86,"b_with":15.770917431192661,"b_without":14.790963302752294},{"year":2016,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":45847,"income":39700.0,"pm_with":472.49,"py_with":5669.85,"pm_without":443.07,"py_without":5316.87,"b_with":14.281738035264485,"b_without":13.392619647355165},{"year":2017,"c":"ZH","name":"Zürich","region":"Zürich","stpf":898539,"income":52400.0,"pm_with":452.95,"py_with":5435.39,"pm_without":425.11,"py_without":5101.31,"b_with":10.372881679389314,"b_without":9.735324427480917},{"year":2017,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":654839,"income":44400.0,"pm_with":480.01,"py_with":5760.16,"pm_without":450.65,"py_without":5407.79,"b_with":12.973333333333334,"b_without":12.179707207207208},{"year":2017,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":239839,"income":47700.0,"pm_with":404.32,"py_with":4851.89,"pm_without":379.37,"py_without":4552.45,"b_with":10.17167714884696,"b_without":9.54392033542977},{"year":2017,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21025,"income":47300.0,"pm_with":374.57,"py_with":4494.89,"pm_without":351.58,"py_without":4218.94,"b_with":9.50293868921776,"b_without":8.91953488372093},{"year":2017,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":94795,"income":51800.0,"pm_with":399.03,"py_with":4788.31,"pm_without":374.38,"py_without":4492.6,"b_with":9.243841698841699,"b_without":8.672972972972975},{"year":2017,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22362,"income":47900.0,"pm_with":379.87,"py_with":4558.42,"pm_without":356.4,"py_without":4276.74,"b_with":9.516534446764092,"b_without":8.92847599164927},{"year":2017,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":26128,"income":52200.0,"pm_with":363.22,"py_with":4358.69,"pm_without":340.88,"py_without":4090.51,"b_with":8.349980842911876,"b_without":7.836226053639847},{"year":2017,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23814,"income":44800.0,"pm_with":395.84,"py_with":4750.13,"pm_without":371.08,"py_without":4452.91,"b_with":10.60296875,"b_without":9.93953125},{"year":2017,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":73805,"income":59800.0,"pm_with":383.26,"py_with":4599.11,"pm_without":359.45,"py_without":4313.37,"b_with":7.690819397993311,"b_without":7.212993311036789},{"year":2017,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":183048,"income":46500.0,"pm_with":446.8,"py_with":5361.62,"pm_without":418.95,"py_without":5027.45,"b_with":11.53036559139785,"b_without":10.811720430107528},{"year":2017,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":169168,"income":47600.0,"pm_with":443.78,"py_with":5325.4,"pm_without":416.54,"py_without":4998.47,"b_with":11.18781512605042,"b_without":10.500987394957983},{"year":2017,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":124751,"income":45400.0,"pm_with":590.83,"py_with":7089.94,"pm_without":554.13,"py_without":6649.6,"b_with":15.616607929515416,"b_without":14.64669603524229},{"year":2017,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":172690,"income":53000.0,"pm_with":480.17,"py_with":5762.06,"pm_without":450.29,"py_without":5403.45,"b_with":10.871811320754718,"b_without":10.195188679245284},{"year":2017,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":48932,"income":46600.0,"pm_with":431.96,"py_with":5183.51,"pm_without":404.99,"py_without":4859.91,"b_with":11.123412017167382,"b_without":10.428991416309012},{"year":2017,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":34333,"income":45200.0,"pm_with":388.41,"py_with":4660.95,"pm_without":364.19,"py_without":4370.28,"b_with":10.31183628318584,"b_without":9.668761061946903},{"year":2017,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9483,"income":47400.0,"pm_with":351.22,"py_with":4214.58,"pm_without":329.34,"py_without":3952.06,"b_with":8.891518987341772,"b_without":8.337679324894514},{"year":2017,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":300529,"income":45500.0,"pm_with":414.05,"py_with":4968.54,"pm_without":388.2,"py_without":4658.38,"b_with":10.919868131868132,"b_without":10.238197802197803},{"year":2017,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":129866,"income":42300.0,"pm_with":387.61,"py_with":4651.35,"pm_without":364.11,"py_without":4369.31,"b_with":10.996099290780142,"b_without":10.329338061465721},{"year":2017,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":390609,"income":51800.0,"pm_with":417.88,"py_with":5014.58,"pm_without":392.07,"py_without":4704.81,"b_with":9.68065637065637,"b_without":9.082644787644789},{"year":2017,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":160782,"income":48100.0,"pm_with":407.59,"py_with":4891.14,"pm_without":382.25,"py_without":4587.02,"b_with":10.16869022869023,"b_without":9.536424116424119},{"year":2017,"c":"TI","name":"Tessin","region":"Tessin","stpf":226028,"income":39100.0,"pm_with":487.0,"py_with":5843.97,"pm_without":456.68,"py_without":5480.14,"b_with":14.94621483375959,"b_without":14.015703324808184},{"year":2017,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":462569,"income":45500.0,"pm_with":536.3,"py_with":6435.55,"pm_without":502.95,"py_without":6035.35,"b_with":14.144065934065935,"b_without":13.264505494505496},{"year":2017,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":240968,"income":36500.0,"pm_with":399.88,"py_with":4798.54,"pm_without":374.84,"py_without":4498.06,"b_with":13.146684931506849,"b_without":12.323452054794522},{"year":2017,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":108839,"income":41300.0,"pm_with":528.59,"py_with":6343.03,"pm_without":495.58,"py_without":5946.9,"b_with":15.358426150121065,"b_without":14.399273607748183},{"year":2017,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":285856,"income":43300.0,"pm_with":596.33,"py_with":7155.96,"pm_without":559.31,"py_without":6711.73,"b_with":16.52646651270208,"b_without":15.5005311778291},{"year":2017,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":46178,"income":39600.0,"pm_with":501.73,"py_with":6020.76,"pm_without":470.46,"py_without":5645.51,"b_with":15.203939393939395,"b_without":14.256338383838385},{"year":2018,"c":"ZH","name":"Zürich","region":"Zürich","stpf":908625,"income":52900.0,"pm_with":470.07,"py_with":5640.9,"pm_without":441.13,"py_without":5293.62,"b_with":10.663327032136106,"b_without":10.006843100189036},{"year":2018,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":656919,"income":45000.0,"pm_with":496.38,"py_with":5956.51,"pm_without":465.94,"py_without":5591.34,"b_with":13.236688888888889,"b_without":12.4252},{"year":2018,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":241870,"income":48200.0,"pm_with":420.5,"py_with":5046.0,"pm_without":394.51,"py_without":4734.08,"b_with":10.468879668049793,"b_without":9.821742738589212},{"year":2018,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21096,"income":47900.0,"pm_with":385.42,"py_with":4625.01,"pm_without":361.71,"py_without":4340.55,"b_with":9.655553235908144,"b_without":9.06169102296451},{"year":2018,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":96039,"income":52400.0,"pm_with":410.38,"py_with":4924.51,"pm_without":384.91,"py_without":4618.94,"b_with":9.397919847328245,"b_without":8.81477099236641},{"year":2018,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22595,"income":48100.0,"pm_with":391.46,"py_with":4697.49,"pm_without":367.22,"py_without":4406.64,"b_with":9.766091476091477,"b_without":9.161413721413721},{"year":2018,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":26225,"income":52600.0,"pm_with":380.39,"py_with":4564.65,"pm_without":356.94,"py_without":4283.3,"b_with":8.678041825095056,"b_without":8.143155893536122},{"year":2018,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":23930,"income":45700.0,"pm_with":410.45,"py_with":4925.37,"pm_without":384.64,"py_without":4615.68,"b_with":10.77761487964989,"b_without":10.099956236323852},{"year":2018,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":74828,"income":60600.0,"pm_with":398.74,"py_with":4784.9,"pm_without":373.93,"py_without":4487.12,"b_with":7.895874587458746,"b_without":7.4044884488448846},{"year":2018,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":185808,"income":47100.0,"pm_with":463.88,"py_with":5566.61,"pm_without":434.94,"py_without":5219.34,"b_with":11.818704883227175,"b_without":11.081401273885351},{"year":2018,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":165229,"income":49100.0,"pm_with":464.25,"py_with":5571.03,"pm_without":435.7,"py_without":5228.4,"b_with":11.346293279022403,"b_without":10.64847250509165},{"year":2018,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":124917,"income":45700.0,"pm_with":612.48,"py_with":7349.78,"pm_without":574.36,"py_without":6892.26,"b_with":16.082669584245078,"b_without":15.08153172866521},{"year":2018,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":173514,"income":53300.0,"pm_with":503.01,"py_with":6036.14,"pm_without":471.65,"py_without":5659.85,"b_with":11.32484052532833,"b_without":10.618855534709194},{"year":2018,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":49340,"income":47100.0,"pm_with":450.0,"py_with":5399.98,"pm_without":421.84,"py_without":5062.02,"b_with":11.46492569002123,"b_without":10.747388535031847},{"year":2018,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":34309,"income":45800.0,"pm_with":407.22,"py_with":4886.65,"pm_without":381.78,"py_without":4581.35,"b_with":10.669541484716156,"b_without":10.002947598253275},{"year":2018,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9563,"income":47900.0,"pm_with":364.53,"py_with":4374.32,"pm_without":341.79,"py_without":4101.44,"b_with":9.132192066805844,"b_without":8.56250521920668},{"year":2018,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":302637,"income":46100.0,"pm_with":428.93,"py_with":5147.14,"pm_without":402.12,"py_without":4825.43,"b_with":11.165162689804772,"b_without":10.467310195227766},{"year":2018,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":130426,"income":42800.0,"pm_with":402.55,"py_with":4830.64,"pm_without":378.12,"py_without":4537.47,"b_with":11.286542056074767,"b_without":10.601565420560748},{"year":2018,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":395799,"income":52100.0,"pm_with":436.4,"py_with":5236.8,"pm_without":409.42,"py_without":4913.09,"b_with":10.05143953934741,"b_without":9.430115163147793},{"year":2018,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":162497,"income":48800.0,"pm_with":425.0,"py_with":5100.03,"pm_without":398.52,"py_without":4782.28,"b_with":10.450881147540983,"b_without":9.799754098360655},{"year":2018,"c":"TI","name":"Tessin","region":"Tessin","stpf":227711,"income":39100.0,"pm_with":506.12,"py_with":6073.42,"pm_without":474.23,"py_without":5690.8,"b_with":15.533043478260868,"b_without":14.55447570332481},{"year":2018,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":470753,"income":45500.0,"pm_with":559.19,"py_with":6710.23,"pm_without":524.31,"py_without":6291.77,"b_with":14.747758241758241,"b_without":13.828065934065936},{"year":2018,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":243363,"income":37100.0,"pm_with":417.45,"py_with":5009.39,"pm_without":391.04,"py_without":4692.49,"b_with":13.502398921832883,"b_without":12.64822102425876},{"year":2018,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":109180,"income":41800.0,"pm_with":551.94,"py_with":6623.31,"pm_without":517.33,"py_without":6207.94,"b_with":15.845239234449762,"b_without":14.851531100478468},{"year":2018,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":290500,"income":43500.0,"pm_with":621.16,"py_with":7453.93,"pm_without":582.48,"py_without":6989.73,"b_with":17.135471264367816,"b_without":16.068344827586206},{"year":2018,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":46531,"income":40200.0,"pm_with":525.6,"py_with":6307.23,"pm_without":492.77,"py_without":5913.23,"b_with":15.689626865671642,"b_without":14.709527363184078},{"year":2019,"c":"ZH","name":"Zürich","region":"Zürich","stpf":918415,"income":53700.0,"pm_with":485.07,"py_with":5820.82,"pm_without":454.93,"py_without":5459.14,"b_with":10.83951582867784,"b_without":10.165996275605215},{"year":2019,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":659985,"income":45500.0,"pm_with":509.61,"py_with":6115.31,"pm_without":478.22,"py_without":5738.65,"b_with":13.440241758241758,"b_without":12.612417582417581},{"year":2019,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":243634,"income":48900.0,"pm_with":430.67,"py_with":5167.99,"pm_without":403.83,"py_without":4845.91,"b_with":10.568486707566462,"b_without":9.909836400817994},{"year":2019,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21298,"income":48800.0,"pm_with":398.3,"py_with":4779.63,"pm_without":373.67,"py_without":4484.04,"b_with":9.794323770491802,"b_without":9.18860655737705},{"year":2019,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":97103,"income":53200.0,"pm_with":423.79,"py_with":5085.49,"pm_without":397.29,"py_without":4767.51,"b_with":9.559191729323308,"b_without":8.961484962406017},{"year":2019,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22683,"income":48900.0,"pm_with":404.61,"py_with":4855.29,"pm_without":379.42,"py_without":4553.1,"b_with":9.929018404907977,"b_without":9.311042944785276},{"year":2019,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":26252,"income":53000.0,"pm_with":394.58,"py_with":4735.0,"pm_without":370.15,"py_without":4441.81,"b_with":8.933962264150944,"b_without":8.380773584905661},{"year":2019,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":24096,"income":46300.0,"pm_with":425.45,"py_with":5105.4,"pm_without":398.57,"py_without":4782.81,"b_with":11.026781857451404,"b_without":10.330043196544278},{"year":2019,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":75450,"income":61500.0,"pm_with":409.48,"py_with":4913.71,"pm_without":383.87,"py_without":4606.48,"b_with":7.989772357723577,"b_without":7.49021138211382},{"year":2019,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":188683,"income":47700.0,"pm_with":478.11,"py_with":5737.28,"pm_without":448.15,"py_without":5377.75,"b_with":12.027840670859538,"b_without":11.274109014675053},{"year":2019,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":166106,"income":49700.0,"pm_with":478.6,"py_with":5743.17,"pm_without":449.03,"py_without":5388.36,"b_with":11.555674044265594,"b_without":10.841770623742454},{"year":2019,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":125242,"income":46300.0,"pm_with":629.45,"py_with":7553.4,"pm_without":590.12,"py_without":7081.39,"b_with":16.314038876889846,"b_without":15.294578833693306},{"year":2019,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":174777,"income":53900.0,"pm_with":518.59,"py_with":6223.14,"pm_without":486.12,"py_without":5833.45,"b_with":11.545714285714286,"b_without":10.822727272727272},{"year":2019,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":49581,"income":47700.0,"pm_with":465.86,"py_with":5590.31,"pm_without":436.59,"py_without":5239.04,"b_with":11.71972746331237,"b_without":10.983312368972745},{"year":2019,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":34107,"income":46800.0,"pm_with":420.12,"py_with":5041.45,"pm_without":393.77,"py_without":4725.19,"b_with":10.77232905982906,"b_without":10.096559829059828},{"year":2019,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9568,"income":48500.0,"pm_with":376.0,"py_with":4511.97,"pm_without":352.42,"py_without":4229.05,"b_with":9.303030927835051,"b_without":8.719690721649485},{"year":2019,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":304438,"income":46600.0,"pm_with":441.78,"py_with":5301.33,"pm_without":413.94,"py_without":4967.28,"b_with":11.376244635193133,"b_without":10.659399141630901},{"year":2019,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":131084,"income":43400.0,"pm_with":417.33,"py_with":5007.93,"pm_without":391.87,"py_without":4702.47,"b_with":11.539009216589863,"b_without":10.835184331797237},{"year":2019,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":400293,"income":52800.0,"pm_with":449.13,"py_with":5389.57,"pm_without":421.21,"py_without":5054.54,"b_with":10.207518939393939,"b_without":9.572992424242424},{"year":2019,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":163556,"income":49700.0,"pm_with":438.78,"py_with":5265.41,"pm_without":411.31,"py_without":4935.69,"b_with":10.594386317907444,"b_without":9.93096579476861},{"year":2019,"c":"TI","name":"Tessin","region":"Tessin","stpf":230039,"income":39300.0,"pm_with":524.73,"py_with":6296.73,"pm_without":491.48,"py_without":5897.77,"b_with":16.022213740458014,"b_without":15.007048346055981},{"year":2019,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":477860,"income":46000.0,"pm_with":571.98,"py_with":6863.8,"pm_without":536.16,"py_without":6433.95,"b_with":14.921304347826087,"b_without":13.986847826086956},{"year":2019,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":246203,"income":37600.0,"pm_with":433.94,"py_with":5207.27,"pm_without":406.35,"py_without":4876.18,"b_with":13.849122340425533,"b_without":12.968563829787236},{"year":2019,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":110248,"income":42100.0,"pm_with":575.53,"py_with":6906.31,"pm_without":539.22,"py_without":6470.61,"b_with":16.404536817102137,"b_without":15.369619952494059},{"year":2019,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":294791,"income":44000.0,"pm_with":641.67,"py_with":7700.0,"pm_without":601.54,"py_without":7218.5,"b_with":17.5,"b_without":16.40568181818182},{"year":2019,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":46790,"income":40800.0,"pm_with":550.9,"py_with":6610.83,"pm_without":516.29,"py_without":6195.5,"b_with":16.203014705882353,"b_without":15.185049019607844},{"year":2020,"c":"ZH","name":"Zürich","region":"Zürich","stpf":926814,"income":54000.0,"pm_with":486.5,"py_with":5838.02,"pm_without":456.0,"py_without":5472.04,"b_with":10.811148148148149,"b_without":10.133407407407407},{"year":2020,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":654295,"income":46200.0,"pm_with":512.48,"py_with":6149.72,"pm_without":480.36,"py_without":5764.29,"b_with":13.31108225108225,"b_without":12.476818181818182},{"year":2020,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":245876,"income":49100.0,"pm_with":431.99,"py_with":5183.89,"pm_without":404.9,"py_without":4858.79,"b_with":10.557820773930754,"b_without":9.89570264765784},{"year":2020,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21415,"income":48700.0,"pm_with":404.86,"py_with":4858.26,"pm_without":379.52,"py_without":4554.24,"b_with":9.975893223819304,"b_without":9.351622176591375},{"year":2020,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":98601,"income":53500.0,"pm_with":430.65,"py_with":5167.86,"pm_without":403.53,"py_without":4842.4,"b_with":9.659551401869159,"b_without":9.051214953271028},{"year":2020,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":22860,"income":49300.0,"pm_with":409.59,"py_with":4915.08,"pm_without":383.79,"py_without":4605.48,"b_with":9.96973630831643,"b_without":9.341744421906693},{"year":2020,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":26556,"income":53000.0,"pm_with":399.61,"py_with":4795.32,"pm_without":374.57,"py_without":4494.85,"b_with":9.04777358490566,"b_without":8.480849056603775},{"year":2020,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":24183,"income":46300.0,"pm_with":429.48,"py_with":5153.79,"pm_without":402.35,"py_without":4828.23,"b_with":11.131295896328295,"b_without":10.428142548596112},{"year":2020,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":76112,"income":62000.0,"pm_with":410.86,"py_with":4930.27,"pm_without":384.97,"py_without":4619.65,"b_with":7.952048387096775,"b_without":7.451048387096773},{"year":2020,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":191328,"income":48124.5,"pm_with":486.26,"py_with":5835.11,"pm_without":455.81,"py_without":5469.69,"b_with":12.125029870440212,"b_without":11.36570769566437},{"year":2020,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":167167,"income":49800.0,"pm_with":484.42,"py_with":5813.04,"pm_without":454.23,"py_without":5450.79,"b_with":11.672771084337349,"b_without":10.945361445783131},{"year":2020,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":125356,"income":47000.0,"pm_with":633.03,"py_with":7596.41,"pm_without":593.5,"py_without":7122.03,"b_with":16.162574468085104,"b_without":15.153255319148936},{"year":2020,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":176161,"income":54000.0,"pm_with":525.0,"py_with":6299.95,"pm_without":491.86,"py_without":5902.34,"b_with":11.666574074074074,"b_without":10.930259259259259},{"year":2020,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":50232,"income":48100.0,"pm_with":472.16,"py_with":5665.86,"pm_without":442.49,"py_without":5309.89,"b_with":11.779334719334718,"b_without":11.03927234927235},{"year":2020,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":33857,"income":47200.0,"pm_with":430.52,"py_with":5166.19,"pm_without":403.51,"py_without":4842.13,"b_with":10.94531779661017,"b_without":10.25875},{"year":2020,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9742,"income":49200.0,"pm_with":380.36,"py_with":4564.29,"pm_without":356.53,"py_without":4278.41,"b_with":9.277012195121952,"b_without":8.695955284552845},{"year":2020,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":306814,"income":47000.0,"pm_with":448.17,"py_with":5378.05,"pm_without":419.94,"py_without":5039.25,"b_with":11.442659574468085,"b_without":10.721808510638297},{"year":2020,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":131531,"income":44100.0,"pm_with":427.7,"py_with":5132.44,"pm_without":401.44,"py_without":4817.31,"b_with":11.638185941043083,"b_without":10.923605442176871},{"year":2020,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":405441,"income":53100.0,"pm_with":454.48,"py_with":5453.77,"pm_without":425.88,"py_without":5110.6,"b_with":10.270753295668552,"b_without":9.624482109227872},{"year":2020,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":165556,"income":49900.0,"pm_with":446.44,"py_with":5357.24,"pm_without":418.49,"py_without":5021.91,"b_with":10.735951903807615,"b_without":10.063947895791584},{"year":2020,"c":"TI","name":"Tessin","region":"Tessin","stpf":232463,"income":39200.0,"pm_with":535.24,"py_with":6422.88,"pm_without":501.35,"py_without":6016.2,"b_with":16.38489795918367,"b_without":15.347448979591835},{"year":2020,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":486034,"income":46400.0,"pm_with":572.18,"py_with":6866.2,"pm_without":536.41,"py_without":6436.93,"b_with":14.797844827586207,"b_without":13.872693965517241},{"year":2020,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":240441,"income":40100.0,"pm_with":445.54,"py_with":5346.51,"pm_without":417.25,"py_without":5007.02,"b_with":13.33294264339152,"b_without":12.486334164588529},{"year":2020,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":110492,"income":41700.0,"pm_with":583.93,"py_with":7007.21,"pm_without":547.12,"py_without":6565.41,"b_with":16.80386091127098,"b_without":15.744388489208633},{"year":2020,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":298099,"income":44200.0,"pm_with":649.79,"py_with":7797.5,"pm_without":609.15,"py_without":7309.8,"b_with":17.641402714932127,"b_without":16.538009049773756},{"year":2020,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":47156,"income":40900.0,"pm_with":553.33,"py_with":6639.97,"pm_without":518.58,"py_without":6222.9,"b_with":16.234645476772616,"b_without":15.214914425427873},{"year":2021,"c":"ZH","name":"Zürich","region":"Zürich","stpf":936428,"income":55000.0,"pm_with":486.96,"py_with":5843.49,"pm_without":456.13,"py_without":5473.62,"b_with":10.624527272727272,"b_without":9.952036363636363},{"year":2021,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":648096,"income":47200.0,"pm_with":514.4,"py_with":6172.83,"pm_without":482.14,"py_without":5785.63,"b_with":13.078029661016949,"b_without":12.257690677966101},{"year":2021,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":249522,"income":49800.0,"pm_with":440.67,"py_with":5288.01,"pm_without":412.74,"py_without":4952.84,"b_with":10.618493975903615,"b_without":9.94546184738956},{"year":2021,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21605,"income":49600.0,"pm_with":407.74,"py_with":4892.83,"pm_without":382.04,"py_without":4584.46,"b_with":9.864576612903225,"b_without":9.242862903225808},{"year":2021,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":99945,"income":54700.0,"pm_with":435.16,"py_with":5221.91,"pm_without":407.74,"py_without":4892.86,"b_with":9.546453382084094,"b_without":8.94489945155393},{"year":2021,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":23189,"income":50200.0,"pm_with":414.5,"py_with":4973.94,"pm_without":388.34,"py_without":4660.11,"b_with":9.90824701195219,"b_without":9.28308764940239},{"year":2021,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":27067,"income":53700.0,"pm_with":406.53,"py_with":4878.39,"pm_without":380.81,"py_without":4569.75,"b_with":9.084525139664805,"b_without":8.509776536312849},{"year":2021,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":24599,"income":47100.0,"pm_with":435.59,"py_with":5227.11,"pm_without":408.02,"py_without":4896.3,"b_with":11.097898089171974,"b_without":10.395541401273887},{"year":2021,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":77244,"income":63200.0,"pm_with":412.35,"py_with":4948.16,"pm_without":386.34,"py_without":4636.13,"b_with":7.829367088607595,"b_without":7.335648734177215},{"year":2021,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":195609,"income":48614.0,"pm_with":488.38,"py_with":5860.56,"pm_without":457.75,"py_without":5493.0,"b_with":12.055292714032996,"b_without":11.299214218126465},{"year":2021,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":168939,"income":50500.0,"pm_with":487.14,"py_with":5845.71,"pm_without":456.76,"py_without":5481.15,"b_with":11.575663366336633,"b_without":10.853762376237624},{"year":2021,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":126281,"income":47700.0,"pm_with":637.11,"py_with":7645.36,"pm_without":597.23,"py_without":7166.81,"b_with":16.028008385744233,"b_without":15.02475890985325},{"year":2021,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":178244,"income":54400.0,"pm_with":533.66,"py_with":6403.91,"pm_without":499.92,"py_without":5999.01,"b_with":11.77189338235294,"b_without":11.027591911764706},{"year":2021,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":51132,"income":48600.0,"pm_with":475.09,"py_with":5701.02,"pm_without":444.95,"py_without":5339.42,"b_with":11.730493827160494,"b_without":10.986460905349794},{"year":2021,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":33838,"income":47900.0,"pm_with":432.94,"py_with":5195.25,"pm_without":405.61,"py_without":4867.33,"b_with":10.846033402922755,"b_without":10.16144050104384},{"year":2021,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9754,"income":50400.0,"pm_with":382.06,"py_with":4584.75,"pm_without":357.98,"py_without":4295.74,"b_with":9.09672619047619,"b_without":8.52329365079365},{"year":2021,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":309371,"income":47600.0,"pm_with":451.19,"py_with":5414.25,"pm_without":422.73,"py_without":5072.7,"b_with":11.374474789915967,"b_without":10.656932773109244},{"year":2021,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":133656,"income":44600.0,"pm_with":432.34,"py_with":5188.03,"pm_without":405.73,"py_without":4868.8,"b_with":11.632354260089686,"b_without":10.91659192825112},{"year":2021,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":411177,"income":53500.0,"pm_with":457.16,"py_with":5485.94,"pm_without":428.33,"py_without":5139.97,"b_with":10.254093457943924,"b_without":9.607420560747663},{"year":2021,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":167673,"income":50400.0,"pm_with":451.37,"py_with":5416.41,"pm_without":422.91,"py_without":5074.86,"b_with":10.746845238095236,"b_without":10.069166666666666},{"year":2021,"c":"TI","name":"Tessin","region":"Tessin","stpf":232906,"income":40100.0,"pm_with":538.75,"py_with":6464.98,"pm_without":504.57,"py_without":6054.83,"b_with":16.12214463840399,"b_without":15.09932668329177},{"year":2021,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":496392,"income":46900.0,"pm_with":573.3,"py_with":6879.58,"pm_without":537.15,"py_without":6445.78,"b_with":14.668614072494671,"b_without":13.743667377398719},{"year":2021,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":244208,"income":40600.0,"pm_with":452.88,"py_with":5434.59,"pm_without":424.1,"py_without":5089.2,"b_with":13.385689655172413,"b_without":12.53497536945813},{"year":2021,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":111164,"income":43000.0,"pm_with":590.14,"py_with":7081.65,"pm_without":552.87,"py_without":6634.49,"b_with":16.468953488372094,"b_without":15.429046511627906},{"year":2021,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":309628,"income":45700.0,"pm_with":653.36,"py_with":7840.29,"pm_without":612.21,"py_without":7346.57,"b_with":17.155995623632386,"b_without":16.075645514223194},{"year":2021,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":47468,"income":41300.0,"pm_with":560.84,"py_with":6730.13,"pm_without":525.55,"py_without":6306.63,"b_with":16.295714285714286,"b_without":15.270290556900726},{"year":2022,"c":"ZH","name":"Zürich","region":"Zürich","stpf":946069,"income":56100.0,"pm_with":485.21,"py_with":5822.48,"pm_without":454.33,"py_without":5451.94,"b_with":10.378752228163993,"b_without":9.718253119429589},{"year":2022,"c":"BE","name":"Bern","region":"Espace Mittelland","stpf":651577,"income":47800.0,"pm_with":513.04,"py_with":6156.42,"pm_without":480.77,"py_without":5769.19,"b_with":12.879539748953976,"b_without":12.069435146443514},{"year":2022,"c":"LU","name":"Luzern","region":"Zentralschweiz","stpf":252386,"income":50600.0,"pm_with":442.79,"py_with":5313.51,"pm_without":414.56,"py_without":4974.7,"b_with":10.50100790513834,"b_without":9.831422924901185},{"year":2022,"c":"UR","name":"Uri","region":"Zentralschweiz","stpf":21816,"income":50400.0,"pm_with":410.2,"py_with":4922.37,"pm_without":383.97,"py_without":4607.66,"b_with":9.766607142857142,"b_without":9.142182539682539},{"year":2022,"c":"SZ","name":"Schwyz","region":"Zentralschweiz","stpf":100709,"income":55400.0,"pm_with":433.09,"py_with":5197.04,"pm_without":405.63,"py_without":4867.55,"b_with":9.380938628158844,"b_without":8.786191335740073},{"year":2022,"c":"OW","name":"Obwalden","region":"Zentralschweiz","stpf":23311,"income":51100.0,"pm_with":418.2,"py_with":5018.4,"pm_without":391.67,"py_without":4700.02,"b_with":9.820743639921721,"b_without":9.197690802348339},{"year":2022,"c":"NW","name":"Nidwalden","region":"Zentralschweiz","stpf":27379,"income":55100.0,"pm_with":406.45,"py_with":4877.42,"pm_without":380.58,"py_without":4566.99,"b_with":8.851941923774955,"b_without":8.288548094373866},{"year":2022,"c":"GL","name":"Glarus","region":"Ostschweiz","stpf":24740,"income":47900.0,"pm_with":436.99,"py_with":5243.83,"pm_without":408.92,"py_without":4907.07,"b_with":10.947453027139876,"b_without":10.244405010438411},{"year":2022,"c":"ZG","name":"Zug","region":"Zentralschweiz","stpf":77929,"income":64900.0,"pm_with":411.08,"py_with":4933.01,"pm_without":385.02,"py_without":4620.19,"b_with":7.600939907550078,"b_without":7.118936825885978},{"year":2022,"c":"FR","name":"Freiburg","region":"Espace Mittelland","stpf":199600,"income":48956.0,"pm_with":488.13,"py_with":5857.58,"pm_without":457.39,"py_without":5488.64,"b_with":11.964988969687065,"b_without":11.211373478225346},{"year":2022,"c":"SO","name":"Solothurn","region":"Espace Mittelland","stpf":170671,"income":51000.0,"pm_with":489.81,"py_with":5877.67,"pm_without":459.1,"py_without":5509.23,"b_with":11.524843137254901,"b_without":10.802411764705882},{"year":2022,"c":"BS","name":"Basel-Stadt","region":"Nordwestschweiz","stpf":126844,"income":48500.0,"pm_with":638.39,"py_with":7660.69,"pm_without":598.25,"py_without":7179.05,"b_with":15.795237113402061,"b_without":14.802164948453608},{"year":2022,"c":"BL","name":"Basel-Landschaft","region":"Nordwestschweiz","stpf":179800,"income":55000.0,"pm_with":535.15,"py_with":6421.85,"pm_without":500.8,"py_without":6009.62,"b_with":11.67609090909091,"b_without":10.926581818181818},{"year":2022,"c":"SH","name":"Schaffhausen","region":"Ostschweiz","stpf":52106,"income":49300.0,"pm_with":478.93,"py_with":5747.12,"pm_without":448.27,"py_without":5379.22,"b_with":11.657444219066937,"b_without":10.911196754563896},{"year":2022,"c":"AR","name":"Appenzell Ausserrhoden","region":"Ostschweiz","stpf":33814,"income":48700.0,"pm_with":436.85,"py_with":5242.2,"pm_without":409.12,"py_without":4909.42,"b_with":10.764271047227925,"b_without":10.08094455852156},{"year":2022,"c":"AI","name":"Appenzell Innerrhoden","region":"Ostschweiz","stpf":9861,"income":51400.0,"pm_with":380.63,"py_with":4567.58,"pm_without":356.49,"py_without":4277.89,"b_with":8.886342412451361,"b_without":8.322743190661479},{"year":2022,"c":"SG","name":"St. Gallen","region":"Ostschweiz","stpf":312696,"income":48400.0,"pm_with":449.22,"py_with":5390.68,"pm_without":420.75,"py_without":5049.06,"b_with":11.137768595041322,"b_without":10.431942148760331},{"year":2022,"c":"GR","name":"Graubünden","region":"Ostschweiz","stpf":134024,"income":45400.0,"pm_with":434.17,"py_with":5210.01,"pm_without":407.35,"py_without":4888.22,"b_with":11.47579295154185,"b_without":10.767004405286345},{"year":2022,"c":"AG","name":"Aargau","region":"Nordwestschweiz","stpf":416236,"income":54200.0,"pm_with":457.73,"py_with":5492.76,"pm_without":428.72,"py_without":5144.69,"b_with":10.134243542435424,"b_without":9.492047970479705},{"year":2022,"c":"TG","name":"Thurgau","region":"Ostschweiz","stpf":168808,"income":50200.0,"pm_with":452.1,"py_with":5425.24,"pm_without":423.42,"py_without":5080.99,"b_with":10.807250996015934,"b_without":10.121494023904381},{"year":2022,"c":"TI","name":"Tessin","region":"Tessin","stpf":234321,"income":40300.0,"pm_with":536.8,"py_with":6441.58,"pm_without":502.72,"py_without":6032.61,"b_with":15.98406947890819,"b_without":14.96925558312655},{"year":2022,"c":"VD","name":"Waadt","region":"Genferseeregion","stpf":504151,"income":47400.0,"pm_with":569.15,"py_with":6829.76,"pm_without":533.18,"py_without":6398.12,"b_with":14.408776371308019,"b_without":13.498143459915612},{"year":2022,"c":"VS","name":"Wallis","region":"Genferseeregion","stpf":247091,"income":41600.0,"pm_with":449.29,"py_with":5391.54,"pm_without":420.55,"py_without":5046.57,"b_with":12.960432692307691,"b_without":12.131177884615383},{"year":2022,"c":"NE","name":"Neuenburg","region":"Espace Mittelland","stpf":112358,"income":43600.0,"pm_with":596.33,"py_with":7156.0,"pm_without":558.54,"py_without":6702.52,"b_with":16.412844036697248,"b_without":15.372752293577982},{"year":2022,"c":"GE","name":"Genf","region":"Genferseeregion","stpf":321995,"income":45000.0,"pm_with":656.59,"py_with":7879.12,"pm_without":615.25,"py_without":7383.04,"b_with":17.509155555555555,"b_without":16.406755555555556},{"year":2022,"c":"JU","name":"Jura","region":"Espace Mittelland","stpf":47688,"income":41900.0,"pm_with":567.87,"py_with":6814.41,"pm_without":532.13,"py_without":6385.51,"b_with":16.263508353221955,"b_without":15.239880668257758}],"tiles":{"BS":[2,0],"SH":[4,0],"JU":[1,1],"BL":[2,1],"AG":[3,1],"ZH":[4,1],"TG":[5,1],"NE":[1,2],"SO":[2,2],"LU":[3,2],"ZG":[4,2],"SG":[5,2],"AR":[6,2],"FR":[1,3],"BE":[2,3],"OW":[3,3],"SZ":[4,3],"GL":[5,3],"AI":[6,3],"VD":[1,4],"VS":[2,4],"NW":[3,4],"UR":[4,4],"GR":[5,4],"GE":[0,5],"TI":[4,5]}};
+
+// ---------- data prep ----------
+const YEARS = [...new Set(D.panel.map(r => r.year))].sort((a, b) => a - b);
+const Y0 = YEARS[0], YN = YEARS.at(-1);
+const CANTONS = [...new Set(D.panel.map(r => r.c))].sort();
+const NAME = Object.fromEntries(D.panel.map(r => [r.c, r.name]));
+const byYear = {};
+for (const r of D.panel) (byYear[r.year] ||= {})[r.c] = r;
+
+const state = { year: YN, cover: 'with', tile: 'burden', sel: null };
+const B = r => r['b_' + state.cover];     // burden in %
+const P = r => r['py_' + state.cover];    // annual premium CHF
+const TILE_MEASURES = {
+  burden:  { label: 'Burden',  title: 'Premium burden', get: B, fmt: v => v.toFixed(1) + '%', short: v => v.toFixed(1) + '%',
+             sub: 'Annual premium as % of median taxable income.' },
+  premium: { label: 'Premium', title: 'Annual premium', get: P, fmt: v => chf(v), short: v => nf0.format(v),
+             sub: 'Annual premium of an adult, CHF.' },
+  income:  { label: 'Income',  title: 'Median taxable income', get: r => r.income, fmt: v => chf(v), short: v => chfk(v),
+             sub: 'Median taxable income per tax unit, CHF.' },
+};
+
+const nf0 = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 });
+const chf = v => 'CHF ' + nf0.format(v);
+const chfk = v => nf0.format(Math.round(v / 1000)) + 'k';
+const pct = v => (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+const pp = v => (v > 0 ? '+' : '') + v.toFixed(1) + ' pp';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function quantile(a, q) {
+  const s = [...a].sort((x, y) => x - y), p = (s.length - 1) * q, i = Math.floor(p);
+  return i + 1 < s.length ? s[i] + (s[i + 1] - s[i]) * (p - i) : s[i];
+}
+const median = a => quantile(a, 0.5);
+function corr(x, y) {
+  const mx = x.reduce((a, b) => a + b) / x.length, my = y.reduce((a, b) => a + b) / y.length;
+  let sxy = 0, sxx = 0, syy = 0;
+  x.forEach((v, i) => { sxy += (v - mx) * (y[i] - my); sxx += (v - mx) ** 2; syy += (y[i] - my) ** 2; });
+  return sxy / Math.sqrt(sxx * syy);
+}
+const ranks = a => { const s = a.map((v, i) => [v, i]).sort((p, q) => p[0] - q[0]), r = []; s.forEach(([, i], k) => r[i] = k + 1); return r; };
+
+// ---------- colour helpers ----------
+const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+const rgb2hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+function interp(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  const p = t * (stops.length - 1), i = Math.min(Math.floor(p), stops.length - 2), f = p - i;
+  const a = hex2rgb(stops[i]), b = hex2rgb(stops[i + 1]);
+  return rgb2hex(a.map((v, k) => v + (b[k] - v) * f));
+}
+function luminance(h) {
+  const [r, g, b] = hex2rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const seqStops = () => css('--seq').split(',').map(s => s.trim()).slice(1);
+function domain(get) {
+  const v = D.panel.map(get);
+  return [Math.min(...v), Math.max(...v)];
+}
+
+// ---------- tooltip ----------
+const tip = document.getElementById('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => { tip.style.opacity = 0; };
+function cantonTip(c, y) {
+  const r = byYear[y][c], r0 = byYear[Y0][c];
+  const rows = [
+    ['Annual premium', chf(P(r))], ['Median taxable income', chf(r.income)], ['Burden', B(r).toFixed(1) + '%'],
+    [`Burden change since ${Y0}`, pp(B(r) - B(r0))], ['Taxpayers', nf0.format(r.stpf)],
+  ];
+  return `<div class="t">${r.name} (${c}) · ${y}</div>` + rows.map(([k, v]) => `<div class="r"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+// ---------- Plotly base ----------
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const CONFIG = { displayModeBar: false, responsive: true };
+const title = t => ({ text: t, font: { color: css('--text-2'), size: 12 } });
+function axis(extra = {}) {
+  return Object.assign({
+    gridcolor: css('--grid'), linecolor: css('--axis'), zeroline: false, tickfont: { color: css('--muted'), size: 11 },
+    automargin: true, fixedrange: true,
+  }, extra);
+}
+function layout(extra = {}) {
+  return Object.assign({
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: FONT, color: css('--text-2'), size: 12 },
+    margin: { l: 8, r: 16, t: 8, b: 8 }, showlegend: false, separators: '.’',
+    hoverlabel: { bgcolor: css('--surface'), bordercolor: css('--axis'), font: { family: FONT, color: css('--text-1'), size: 13 } },
+  }, extra);
+}
+const bound = new Set();
+function onClickCanton(div, getCanton) {
+  if (bound.has(div.id)) return;
+  bound.add(div.id);
+  div.on('plotly_click', ev => { const c = getCanton(ev.points[0]); if (c) select(c); });
+}
+const yearLine = () => ({ type: 'line', x0: state.year, x1: state.year, yref: 'paper', y0: 0, y1: 1, line: { color: css('--muted'), width: 1, dash: 'dot' } });
+const yearColumn = () => ({ type: 'rect', x0: state.year - 0.5, x1: state.year + 0.5, yref: 'paper', y0: 0, y1: 1,
+  line: { color: css('--text-1'), width: 2 }, fillcolor: 'rgba(0,0,0,0)' });
+const tickName = c => c === state.sel ? `<b>${NAME[c]}</b>` : NAME[c];
+
+// ---------- controls ----------
+const yearIn = document.getElementById('year');
+const cantonSel = document.getElementById('canton');
+const clearBtn = document.getElementById('clear');
+const playBtn = document.getElementById('play');
+const coverEl = document.getElementById('cover');
+const tileEl = document.getElementById('tileMeasure');
+
+for (const c of [...CANTONS].sort((a, b) => NAME[a].localeCompare(NAME[b], 'de'))) cantonSel.add(new Option(`${NAME[c]} (${c})`, c));
+for (const [k, m] of Object.entries(TILE_MEASURES)) {
+  const b = document.createElement('button');
+  b.textContent = m.label; b.dataset.k = k;
+  b.onclick = () => { state.tile = k; renderTiles(); };
+  tileEl.appendChild(b);
+}
+coverEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+  state.cover = b.dataset.k;
+  coverEl.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderAll();
+});
+yearIn.oninput = () => setYear(+yearIn.value);
+cantonSel.onchange = () => select(cantonSel.value || null);
+clearBtn.onclick = () => select(null);
+
+let timer = null;
+playBtn.onclick = () => {
+  if (timer) return stop();
+  if (state.year === YN) setYear(Y0);
+  playBtn.textContent = '❚❚'; playBtn.setAttribute('aria-label', 'Pause');
+  timer = setInterval(() => (state.year >= YN ? stop() : setYear(state.year + 1)), 900);
+};
+function stop() { clearInterval(timer); timer = null; playBtn.textContent = '▶'; playBtn.setAttribute('aria-label', 'Play years'); }
+
+function setYear(y) {
+  state.year = y; yearIn.value = y;
+  for (const id of ['yearOut', 'tblYear', 'dumbYear']) document.getElementById(id).textContent = y;
+  renderKPIs(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderAccident(); renderTable();
+  const sc = document.getElementById('scissors'), hm = document.getElementById('heatmap');
+  if (sc.layout) Plotly.relayout(sc, { shapes: sc.layout.shapes.slice(0, -1).concat(yearLine()) });
+  if (hm.layout) Plotly.relayout(hm, { shapes: [yearColumn()] });
+}
+function select(c) {
+  state.sel = state.sel === c ? null : c;
+  cantonSel.value = state.sel || '';
+  clearBtn.hidden = !state.sel;
+  renderAll();
+}
+
+// ---------- KPIs ----------
+function renderKPIs() {
+  const rows = Object.values(byYear[state.year]), rows0 = Object.values(byYear[Y0]);
+  const bNow = median(rows.map(B)), b0 = median(rows0.map(B));
+  const idx = CANTONS.map(c => [P(byYear[state.year][c]) / P(byYear[Y0][c]), byYear[state.year][c].income / byYear[Y0][c].income]);
+  const pg = (median(idx.map(v => v[0])) - 1) * 100, ig = (median(idx.map(v => v[1])) - 1) * 100;
+  const sorted = [...rows].sort((a, b) => B(b) - B(a));
+  const tiles = [
+    { k: `Typical burden ${state.year}`, v: bNow.toFixed(1) + '%',
+      s: state.year === Y0 ? 'median of 26 cantons' : `<span class="down">▲ ${pp(bNow - b0)}</span> vs ${Y0} (${b0.toFixed(1)}%)` },
+    { k: `Growth since ${Y0}, typical canton`, v: `<span class="vs"><span class="prem">${pct(pg)}</span><small>premium</small></span>`,
+      s: `<span class="inc">${pct(ig)}</span> median taxable income` },
+    { k: 'Highest burden', v: sorted[0].name, s: B(sorted[0]).toFixed(1) + '% · ' + chf(P(sorted[0])) + ' premium' },
+    { k: 'Lowest burden', v: sorted.at(-1).name, s: B(sorted.at(-1)).toFixed(1) + '% · ' + chf(P(sorted.at(-1))) + ' premium' },
+  ];
+  if (state.sel) {
+    const r = byYear[state.year][state.sel], rank = sorted.findIndex(x => x.c === state.sel) + 1;
+    tiles[3] = { k: `${r.name} · rank ${rank} of 26 (1 = highest)`, v: B(r).toFixed(1) + '%',
+      s: `${pp(B(r) - B(byYear[Y0][state.sel]))} vs ${Y0}` };
+  }
+  document.getElementById('kpis').innerHTML = tiles.map(t =>
+    `<div class="kpi"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="s">${t.s}</div></div>`).join('');
+}
+
+// ---------- Scissors ----------
+function renderScissors() {
+  const series = (get) => {
+    const out = { mid: [], lo: [], hi: [] };
+    for (const y of YEARS) {
+      const v = CANTONS.map(c => get(byYear[y][c]) / get(byYear[Y0][c]) * 100);
+      out.mid.push(median(v)); out.lo.push(quantile(v, 0.1)); out.hi.push(quantile(v, 0.9));
+    }
+    return out;
+  };
+  const prem = series(P), inc = series(r => r.income);
+  const s1 = css('--s1'), s2 = css('--s2');
+  const band = (s, col) => [
+    { x: YEARS, y: s.lo, mode: 'lines', line: { width: 0 }, hoverinfo: 'skip' },
+    { x: YEARS, y: s.hi, mode: 'lines', line: { width: 0 }, fill: 'tonexty', fillcolor: col, hoverinfo: 'skip' },
+  ];
+  const alpha = (hex, a) => `rgba(${hex2rgb(hex).join(',')},${a})`;
+  const traces = [
+    ...band(inc, alpha(s1, 0.16)), ...band(prem, alpha(s2, 0.16)),
+    { x: YEARS, y: inc.mid, mode: 'lines+markers', line: { color: s1, width: 3 }, marker: { size: 8, color: s1, line: { color: css('--surface'), width: 2 } },
+      customdata: inc.lo.map((l, i) => [l, inc.hi[i]]),
+      hovertemplate: '<b>Median taxable income</b> %{x}<br>Index %{y:.1f}<br>Cantons P10–P90: %{customdata[0]:.1f}–%{customdata[1]:.1f}<extra></extra>' },
+    { x: YEARS, y: prem.mid, mode: 'lines+markers', line: { color: s2, width: 3 }, marker: { size: 8, color: s2, line: { color: css('--surface'), width: 2 } },
+      customdata: prem.lo.map((l, i) => [l, prem.hi[i]]),
+      hovertemplate: '<b>Premium</b> %{x}<br>Index %{y:.1f}<br>Cantons P10–P90: %{customdata[0]:.1f}–%{customdata[1]:.1f}<extra></extra>' },
+  ];
+  const ann = [
+    { x: YN, y: prem.mid.at(-1), text: `<b>Premium ${pct(prem.mid.at(-1) - 100)}</b>`, xanchor: 'left', xshift: 10, showarrow: false, font: { size: 13, color: css('--text-1') } },
+    { x: YN, y: inc.mid.at(-1), text: `<b>Income ${pct(inc.mid.at(-1) - 100)}</b>`, xanchor: 'left', xshift: 10, showarrow: false, font: { size: 13, color: css('--text-1') } },
+  ];
+  const selLegend = document.getElementById('selLegend');
+  selLegend.hidden = !state.sel;
+  if (state.sel) {
+    const c = state.sel;
+    document.getElementById('selLegendName').textContent = NAME[c];
+    for (const [get, col, lab] of [[P, s2, 'premium'], [r => r.income, s1, 'income']]) {
+      const y = YEARS.map(yy => get(byYear[yy][c]) / get(byYear[Y0][c]) * 100);
+      traces.push({ x: YEARS, y, mode: 'lines', line: { color: col, width: 2, dash: 'dash' },
+        hovertemplate: `<b>${NAME[c]} ${lab}</b> %{x}<br>Index %{y:.1f}<extra></extra>` });
+      ann.push({ x: YN, y: y.at(-1), text: `${c} ${pct(y.at(-1) - 100)}`, xanchor: 'left', xshift: 10, yshift: -16, showarrow: false,
+        font: { size: 11, color: css('--text-2') } });
+    }
+  }
+  Plotly.react('scissors', traces, layout({
+    margin: { l: 8, r: 130, t: 8, b: 8 }, hovermode: 'closest',
+    xaxis: axis({ dtick: 1, showgrid: false, range: [Y0 - 0.2, YN + 0.2] }),
+    yaxis: axis({ title: title('Index (2012 = 100)') }),
+    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, line: { color: css('--axis'), width: 1 } }, yearLine()],
+    annotations: ann,
+  }), CONFIG);
+  document.getElementById('scissorsTake').innerHTML =
+    `For the typical canton, premiums rose <b>${pct(prem.mid.at(-1) - 100)}</b> between ${Y0} and ${YN}, median taxable income only
+     <b>${pct(inc.mid.at(-1) - 100)}</b>. From ${YEARS.find((y, i) => prem.lo[i] > inc.hi[i]) ?? YN} on, the two bands no longer even overlap.`;
+}
+
+// ---------- Tile map ----------
+const TILE = 72, GAP = 6;
+function renderTiles() {
+  const m = TILE_MEASURES[state.tile], rows = byYear[state.year];
+  for (const b of tileEl.children) b.setAttribute('aria-pressed', b.dataset.k === state.tile);
+  document.getElementById('mapTitle').textContent = `${m.title} · ${state.year}`;
+  document.getElementById('mapSub').textContent = m.sub + ' Each tile is a canton, placed roughly where it sits on the map.';
+  const [lo, hi] = domain(m.get), stops = seqStops();
+  const el = document.getElementById('tilemap');
+  if (!el.firstChild) {
+    let s = `<svg viewBox="0 0 ${7 * (TILE + GAP)} ${6 * (TILE + GAP)}" role="img" aria-label="Tile map of Swiss cantons">`;
+    for (const c of CANTONS) {
+      const [col, row] = D.tiles[c], x = col * (TILE + GAP), y = row * (TILE + GAP);
+      s += `<g class="tile-g" data-c="${c}" tabindex="0" role="button" aria-label="${NAME[c]}">
+        <rect class="tile" x="${x}" y="${y}" width="${TILE}" height="${TILE}" rx="8"/>
+        <text class="ab" x="${x + TILE / 2}" y="${y + 32}" text-anchor="middle" font-size="18" font-weight="650"></text>
+        <text class="val" x="${x + TILE / 2}" y="${y + 52}" text-anchor="middle" font-size="12"></text></g>`;
+    }
+    el.innerHTML = s + '</svg>';
+    el.querySelectorAll('.tile-g').forEach(g => {
+      const c = g.dataset.c;
+      g.addEventListener('click', () => select(c));
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(c); } });
+      g.addEventListener('mousemove', e => showTip(e, cantonTip(c, state.year)));
+      g.addEventListener('mouseleave', hideTip);
+    });
+  }
+  el.querySelectorAll('.tile-g').forEach(g => {
+    const c = g.dataset.c, v = m.get(rows[c]), fill = interp(stops, (v - lo) / (hi - lo));
+    const ink = luminance(fill) > 0.35 ? '#0b0b0b' : '#ffffff';
+    g.querySelector('.tile').setAttribute('fill', fill);
+    g.querySelector('.ab').textContent = c;
+    g.querySelector('.ab').setAttribute('fill', ink);
+    const val = g.querySelector('.val');
+    val.textContent = m.short(v); val.setAttribute('fill', ink); val.setAttribute('fill-opacity', 0.85);
+    g.classList.toggle('sel', c === state.sel);
+  });
+  document.getElementById('scaleBar').style.background = `linear-gradient(90deg, ${stops.join(',')})`;
+  document.getElementById('scaleMin').textContent = m.fmt(lo);
+  document.getElementById('scaleMax').textContent = m.fmt(hi);
+}
+
+// ---------- Scatter: income vs premium ----------
+function renderScatter() {
+  const rows = Object.values(byYear[state.year]), sel = state.sel;
+  const [xlo, xhi] = domain(r => r.income), [ylo, yhi] = domain(P);
+  const xr = [xlo - (xhi - xlo) * 0.06, xhi + (xhi - xlo) * 0.08], yr = [ylo - (yhi - ylo) * 0.08, yhi + (yhi - ylo) * 0.08];
+  const byB = [...rows].sort((a, b) => B(a) - B(b));
+  const show = new Set([byB[0].c, byB[1].c, byB.at(-1).c, byB.at(-2).c, 'ZH', 'BE', 'TI', sel].filter(Boolean));
+  const maxStpf = Math.max(...D.panel.map(r => r.stpf));
+  const shapes = [], ann = [];
+  for (const b of [8, 10, 12, 14, 16, 18]) {
+    // line y = b% * x, clipped to the plot box
+    let x0 = xr[0], y0 = b / 100 * x0, x1 = xr[1], y1 = b / 100 * x1;
+    if (y0 < yr[0]) { y0 = yr[0]; x0 = y0 / (b / 100); }
+    if (y1 > yr[1]) { y1 = yr[1]; x1 = y1 / (b / 100); }
+    if (x0 >= x1) continue;
+    shapes.push({ type: 'line', x0, y0, x1, y1, line: { color: css('--axis'), width: 1, dash: 'dash' }, layer: 'below' });
+    ann.push({ x: x1, y: y1, text: `${b}%`, showarrow: false, xanchor: y1 >= yr[1] ? 'center' : 'left', yanchor: y1 >= yr[1] ? 'bottom' : 'middle',
+      xshift: y1 >= yr[1] ? 0 : 4, font: { size: 11, color: css('--muted') } });
+  }
+  Plotly.react('scatter', [{
+    x: rows.map(r => r.income), y: rows.map(P), customdata: rows.map(r => r.c),
+    mode: 'markers+text', cliponaxis: false, text: rows.map(r => show.has(r.c) ? r.c : ''), textposition: 'top center',
+    textfont: { size: 11, color: rows.map(r => r.c === sel ? css('--text-1') : css('--text-2')) },
+    marker: {
+      size: rows.map(r => r.stpf), sizemode: 'area', sizeref: 2 * maxStpf / (44 ** 2), sizemin: 6,
+      color: rows.map(r => r.c === sel ? css('--text-1') : css('--s1')), opacity: rows.map(r => !sel || r.c === sel ? 0.85 : 0.35),
+      line: { color: css('--surface'), width: 2 },
+    },
+    hovertemplate: rows.map(r => `<b>${r.name}</b><br>Income ${chf(r.income)}<br>Premium ${chf(P(r))}<br>Burden ${B(r).toFixed(1)}%<extra></extra>`),
+  }], layout({
+    margin: { l: 8, r: 28, t: 16, b: 8 },
+    xaxis: axis({ title: title('Median taxable income (CHF per year)'), tickformat: ',.0f', range: xr }),
+    yaxis: axis({ title: title('Annual premium (CHF)'), tickformat: ',.0f', range: yr }),
+    shapes, annotations: ann, transition: { duration: 500, easing: 'cubic-in-out' },
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  document.getElementById('corr').textContent = corr(rows.map(r => r.income), rows.map(P)).toFixed(2);
+}
+
+// ---------- Dumbbell: burden 2012 -> year ----------
+function renderDumbbell() {
+  const y = state.year;
+  document.getElementById('dumbTitle').textContent = `Burden ${Y0} → ${y}`;
+  const cs = [...CANTONS].sort((a, b) => (B(byYear[y][a]) - B(byYear[Y0][a])) - (B(byYear[y][b]) - B(byYear[Y0][b])));
+  const lx = [], ly = [];
+  for (const c of cs) lx.push(B(byYear[Y0][c]), B(byYear[y][c]), null), ly.push(c, c, null);
+  const tip = c => `<b>${NAME[c]}</b><br>${Y0}: ${B(byYear[Y0][c]).toFixed(1)}%<br>${y}: ${B(byYear[y][c]).toFixed(1)}%<br>Change ${pp(B(byYear[y][c]) - B(byYear[Y0][c]))}<extra></extra>`;
+  Plotly.react('dumbbell', [
+    { x: lx, y: ly, mode: 'lines', line: { color: css('--context'), width: 3 }, hoverinfo: 'skip' },
+    { x: cs.map(c => B(byYear[Y0][c])), y: cs, mode: 'markers', customdata: cs, hovertemplate: cs.map(tip),
+      marker: { size: 9, color: css('--context'), line: { color: css('--surface'), width: 2 } } },
+    { x: cs.map(c => B(byYear[y][c])), y: cs, mode: 'markers+text', customdata: cs, hovertemplate: cs.map(tip),
+      text: cs.map(c => pp(B(byYear[y][c]) - B(byYear[Y0][c]))), textposition: 'middle right', cliponaxis: false,
+      textfont: { size: 10, color: css('--muted') },
+      marker: { size: cs.map(c => c === state.sel ? 13 : 10), color: cs.map(c => c === state.sel ? css('--text-1') : css('--s2')), line: { color: css('--surface'), width: 2 } } },
+  ], layout({
+    margin: { l: 8, r: 52, t: 8, b: 8 },
+    xaxis: axis({ title: title('Premium as % of median taxable income'), ticksuffix: '%', range: [domain(B)[0] - 0.5, domain(B)[1] + 0.5] }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata || p.y));
+}
+
+// ---------- Growth bars ----------
+function renderGrowth() {
+  const y = state.year;
+  document.getElementById('growthTitle').textContent = `Growth ${Y0} → ${y}`;
+  const g = Object.fromEntries(CANTONS.map(c => [c, {
+    p: (P(byYear[y][c]) / P(byYear[Y0][c]) - 1) * 100, i: (byYear[y][c].income / byYear[Y0][c].income - 1) * 100 }]));
+  const cs = [...CANTONS].sort((a, b) => (g[a].p - g[a].i) - (g[b].p - g[b].i));
+  const ht = c => `<b>${NAME[c]}</b><br>Premium ${pct(g[c].p)}<br>Income ${pct(g[c].i)}<br>Gap ${(g[c].p - g[c].i).toFixed(1)} pp<extra></extra>`;
+  Plotly.react('growth', [
+    { type: 'bar', orientation: 'h', y: cs, x: cs.map(c => g[c].i), name: 'Income', customdata: cs, hovertemplate: cs.map(ht),
+      marker: { color: css('--s1'), line: { color: css('--surface'), width: 1 } } },
+    { type: 'bar', orientation: 'h', y: cs, x: cs.map(c => g[c].p), name: 'Premium', customdata: cs, hovertemplate: cs.map(ht),
+      marker: { color: css('--s2'), line: { color: css('--surface'), width: 1 } } },
+  ], layout({
+    barmode: 'group', bargap: 0.28, bargroupgap: 0.08,
+    xaxis: axis({ title: title('Change since 2012'), ticksuffix: '%', zeroline: true, zerolinecolor: css('--axis') }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  const faster = CANTONS.filter(c => g[c].p > g[c].i).length;
+  document.getElementById('growthTake').innerHTML = y === Y0 ? 'Move the year slider to compare growth.' :
+    `Premiums grew faster than median income in <b>${faster} of 26</b> cantons. The widest gap is in <b>${NAME[cs.at(-1)]}</b>
+     (${pct(g[cs.at(-1)].p)} vs ${pct(g[cs.at(-1)].i)}), the narrowest in <b>${NAME[cs[0]]}</b>.`;
+}
+
+// ---------- Heatmap ----------
+function renderHeatmap() {
+  const cs = [...CANTONS].sort((a, b) => B(byYear[YN][a]) - B(byYear[YN][b]));
+  const z = cs.map(c => YEARS.map(y => B(byYear[y][c])));
+  const text = cs.map(c => YEARS.map(y => B(byYear[y][c]).toFixed(1)));
+  const custom = cs.map(c => YEARS.map(y => [NAME[c], nf0.format(P(byYear[y][c])), nf0.format(byYear[y][c].income)]));
+  const stops = seqStops(), [lo, hi] = domain(B);
+  Plotly.react('heatmap', [{
+    type: 'heatmap', x: YEARS, y: cs, z, customdata: custom,
+    zmin: lo, zmax: hi, colorscale: stops.map((s, i) => [i / (stops.length - 1), s]), xgap: 2, ygap: 2,
+    colorbar: { thickness: 10, ticksuffix: '%', outlinewidth: 0, tickfont: { color: css('--muted'), size: 11 }, len: 0.6 },
+    hovertemplate: '<b>%{customdata[0]}</b> %{x}<br>Burden %{z:.1f}%<br>Premium CHF %{customdata[1]}<br>Income CHF %{customdata[2]}<extra></extra>',
+  }, {
+    // cell labels as a text layer, so each label can take the ink that contrasts with its own cell
+    x: cs.flatMap(() => YEARS), y: cs.flatMap(c => YEARS.map(() => c)), text: text.flat(), mode: 'text', hoverinfo: 'skip',
+    textfont: { size: 10, color: z.flat().map(v => luminance(interp(stops, (v - lo) / (hi - lo))) > 0.35 ? '#0b0b0b' : '#ffffff') },
+  }], layout({
+    margin: { l: 8, r: 8, t: 8, b: 8 },
+    xaxis: axis({ dtick: 1, showgrid: false, side: 'top' }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+    shapes: [yearColumn()],
+  }), CONFIG).then(div => onClickCanton(div, p => p.y));
+}
+
+// ---------- With vs without accident cover ----------
+function renderAccident() {
+  const y = state.year, rows = Object.values(byYear[y]).sort((a, b) => b.py_with - a.py_with), cs = rows.map(r => r.c);
+  document.getElementById('accTitle').textContent = `With vs. without accident cover · ${y}`;
+  const lx = [], ly = [];
+  for (const r of rows) lx.push(r.c, r.c, null), ly.push(r.py_without, r.py_with, null);
+  const ht = r => `<b>${r.name}</b><br>With ${chf(r.py_with)}<br>Without ${chf(r.py_without)}<br>Difference ${chf(r.py_with - r.py_without)}<extra></extra>`;
+  Plotly.react('accident', [
+    { x: lx, y: ly, mode: 'lines', line: { color: css('--context'), width: 2 }, hoverinfo: 'skip' },
+    { x: cs, y: rows.map(r => r.py_without), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: 9, color: css('--s3'), line: { color: css('--surface'), width: 2 } } },
+    { x: cs, y: rows.map(r => r.py_with), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: 9, color: css('--s2'), line: { color: css('--surface'), width: 2 } } },
+  ], layout({
+    xaxis: axis({ type: 'category', showgrid: false, tickvals: cs, ticktext: cs.map(c => c === state.sel ? `<b>${c}</b>` : c), tickfont: { color: css('--text-2'), size: 11 } }),
+    yaxis: axis({ title: title('Annual premium (CHF)'), tickformat: ',.0f' }),
+    shapes: state.sel ? [{ type: 'rect', x0: cs.indexOf(state.sel) - 0.45, x1: cs.indexOf(state.sel) + 0.45, yref: 'paper', y0: 0, y1: 1,
+      fillcolor: css('--text-1'), opacity: 0.07, line: { width: 0 } }] : [],
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  const diffPct = median(rows.map(r => (1 - r.py_without / r.py_with) * 100));
+  const rho = corr(ranks(rows.map(r => r.b_with)), ranks(rows.map(r => r.b_without)));
+  document.getElementById('accTake').innerHTML = `Dropping accident cover saves about <b>${diffPct.toFixed(1)}%</b> of the premium
+    (typical canton, ${y}). The canton ranking by burden is practically identical (rank correlation ${rho.toFixed(3)}),
+    so the choice does not change any of our conclusions.`;
+}
+
+// ---------- Table ----------
+const COLS = [
+  ['c', 'Canton'], ['name', 'Name'], ['py', 'Premium CHF/yr'], ['pm', 'CHF/month'], ['income', 'Median income CHF'],
+  ['b', 'Burden %'], ['db', `Δ burden since ${Y0}`], ['stpf', 'Taxpayers'],
+];
+let sortKey = 'b', sortDir = -1;
+function renderTable() {
+  const val = (r, k) => k === 'py' ? P(r) : k === 'pm' ? r['pm_' + state.cover] : k === 'b' ? B(r) : k === 'db' ? B(r) - B(byYear[Y0][r.c]) : r[k];
+  const rows = Object.values(byYear[state.year]).sort((a, b) => {
+    const x = val(a, sortKey), y = val(b, sortKey);
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sortDir;
+  });
+  const f = (k, v) => ['py', 'income', 'stpf'].includes(k) ? nf0.format(v) : k === 'pm' ? v.toFixed(2)
+    : k === 'b' ? v.toFixed(1) : k === 'db' ? pp(v) : v;
+  const t = document.getElementById('table');
+  t.innerHTML = `<thead><tr>${COLS.map(([k, l]) => `<th data-k="${k}">${l}${k === sortKey ? (sortDir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead>`
+    + `<tbody>${rows.map(r => `<tr data-c="${r.c}" class="${r.c === state.sel ? 'sel' : ''}">${COLS.map(([k]) => `<td>${f(k, val(r, k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  t.querySelectorAll('th').forEach(th => th.onclick = () => {
+    sortDir = th.dataset.k === sortKey ? -sortDir : (['c', 'name'].includes(th.dataset.k) ? 1 : -1);
+    sortKey = th.dataset.k; renderTable();
+  });
+  t.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => select(tr.dataset.c));
+}
+
+// ---------- render all / theme ----------
+function renderAll() {
+  renderKPIs(); renderScissors(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderHeatmap(); renderAccident(); renderTable();
+}
+function retheme() { document.getElementById('tilemap').innerHTML = ''; renderAll(); }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+renderAll();
+setYear(state.year);
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 ._*
 .DS_Store
-
+__pycache__/
+.ipynb_checkpoints/
 .venv/
 data/processed/priminfo_premiums_2012_2022.csv
