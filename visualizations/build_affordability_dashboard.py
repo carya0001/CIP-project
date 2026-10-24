@@ -20,21 +20,19 @@ HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "affordability_template.html"
 OUTPUT = HERE / "affordability_dashboard.html"
 
-INCOME_FILE = ROOT / "data" / "processed" / "income_canton_year.csv"
+PROCESSED = ROOT / "data" / "processed"
+INCOME_FILE = PROCESSED / "income_canton_year.csv"
 PREMIUM_NAMES = {
     "with": "priminfo_premiums_per_canton.csv",
     "without": "priminfo_premiums_per_canton_ohne_unfall.csv",
 }
-# The premium files currently live in data_premium/; data/processed/ is checked too
-# in case the team moves them there later.
-PREMIUM_DIRS = [ROOT / "data_premium" / "processed", ROOT / "data" / "processed"]
 
 
 def find_premium_file(name):
-    for folder in PREMIUM_DIRS:
-        if (folder / name).exists():
-            return folder / name
-    raise SystemExit(f"Premium file {name} not found in {[str(d) for d in PREMIUM_DIRS]}")
+    path = PROCESSED / name
+    if not path.exists():
+        raise SystemExit(f"Premium file {name} not found in {PROCESSED}")
+    return path
 
 
 def main():

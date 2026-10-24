@@ -16,8 +16,8 @@ python visualizations/build_affordability_dashboard.py
 ```
 
 The script merges `data/processed/income_canton_year.csv` with the two premium tables
-(`priminfo_premiums_per_canton.csv` and `..._ohne_unfall.csv`, read from `data_premium/processed/`, or from
-`data/processed/` if they are moved there) on year + canton. It stops if a canton-year is missing.
+(`data/processed/priminfo_premiums_per_canton.csv` and `..._ohne_unfall.csv`, produced by
+`notebooks/priminfo_pdf_scraping.ipynb`) on year + canton. It stops if a canton-year is missing.
 **Burden = annual premium ÷ median taxable income × 100.** Layout and charts live in `affordability_template.html`.
 
 Global controls: year slider with play button, accident cover with / without, canton picker. Clicking a canton
