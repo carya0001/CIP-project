@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Premiums vs. Paychecks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.3/plotly.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --text-1: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --context: #c9c8c1;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --band: rgba(42,120,214,0.16);
+  --neg: #e34948;
+  --mid: #f0efec;
+  --good: #006300;
+  --seq: #e6effb,#cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text-1: #f0efec;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --context: #4a4a46;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --band: rgba(57,135,229,0.22);
+    --neg: #e66767;
+    --mid: #383835;
+    --good: #0ca30c;
+    --seq: #20262e,#104281,#184f95,#1c5cab,#256abf,#3987e5,#6da7ec,#b7d3f6;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --text-1: #f0efec;
+  --text-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --context: #4a4a46;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --band: rgba(57,135,229,0.22);
+  --neg: #e66767;
+  --mid: #383835;
+  --good: #0ca30c;
+  --seq: #20262e,#104281,#184f95,#1c5cab,#256abf,#3987e5,#6da7ec,#b7d3f6;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--text-1);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 64px; }
+
+header { padding: 40px 0 20px; }
+.eyebrow { color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+.lede { color: var(--text-2); max-width: 760px; margin: 0; }
+
+/* Controls */
+.controls {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 16px; margin: 0 -16px 20px;
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.ctl { display: flex; align-items: center; gap: 10px; }
+.ctl label { color: var(--text-2); font-size: 13px; }
+.year-ctl { flex: 1 1 320px; }
+.year-ctl input[type=range] { flex: 1; accent-color: var(--s1); min-width: 120px; }
+.year-out { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 20px; min-width: 3ch; }
+button, select {
+  font: inherit; font-size: 14px; color: var(--text-1);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--axis); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.play { width: 38px; padding: 6px 0; text-align: center; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; padding: 2px; background: var(--surface); flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; border-radius: 7px; padding: 5px 10px; color: var(--text-2); }
+.seg button[aria-pressed=true] { background: var(--text-1); color: var(--surface); }
+.clear { color: var(--text-2); }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.kpi .k { color: var(--text-2); font-size: 13px; }
+.kpi .v { font-size: 26px; font-weight: 650; line-height: 1.2; margin-top: 4px; }
+.kpi .s { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.kpi .up { color: var(--good); }
+.kpi .down { color: var(--neg); }
+
+/* Cards */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 12px; min-width: 0; }
+.span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } .span-12 { grid-column: span 12; }
+.card h2 { font-size: 17px; margin: 0 0 2px; }
+.card .sub { color: var(--text-2); font-size: 13px; margin: 0 0 10px; }
+.card .take { color: var(--text-2); font-size: 13px; border-top: 1px solid var(--border); margin: 10px 0 0; padding-top: 10px; }
+.card .take b { color: var(--text-1); font-weight: 600; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-2); font-size: 12px; margin: 4px 0 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.legend i.line { height: 2px; border-radius: 1px; vertical-align: 3px; }
+.legend i.dot { border-radius: 50%; }
+
+/* Tile map */
+#tilemap svg { width: 100%; height: auto; display: block; }
+#tilemap .tile { cursor: pointer; transition: fill .45s ease; }
+#tilemap .tile-g:hover .tile { stroke: var(--text-1); stroke-width: 2; }
+#tilemap .sel .tile { stroke: var(--s2); stroke-width: 3; }
+#tilemap text { pointer-events: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.scale { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.scale .bar { flex: 1; height: 10px; border-radius: 5px; }
+
+.tip {
+  position: fixed; z-index: 20; pointer-events: none; opacity: 0; transition: opacity .12s;
+  background: var(--surface); color: var(--text-1); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0,0,0,.14); border-radius: 10px; padding: 10px 12px; font-size: 13px; min-width: 180px;
+}
+.tip .t { font-weight: 650; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 16px; color: var(--text-2); }
+.tip .r span:last-child { color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* Table */
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--text-2); font-size: 14px; }
+.tbl-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { color: var(--text-2); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface); }
+tr.sel td { background: color-mix(in srgb, var(--s2) 14%, transparent); }
+tbody tr { cursor: pointer; }
+
+footer { color: var(--muted); font-size: 12px; margin-top: 28px; }
+footer a { color: var(--text-2); }
+
+@media (max-width: 900px) {
+  .span-5, .span-6, .span-7 { grid-column: span 12; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .kpi .v { font-size: 21px; }
+  .controls { gap: 10px; position: static; }
+}
+.lede a, footer a, .note a { color: var(--s1); }
+.note { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-top: 16px; color: var(--text-2); font-size: 13px; }
+.note h3 { color: var(--text-1); font-size: 14px; margin: 0 0 6px; }
+.note ul { margin: 0; padding-left: 18px; }
+.kpi .v small { font-size: 15px; font-weight: 500; color: var(--text-2); }
+.vs { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.vs span { white-space: nowrap; }
+.prem { color: var(--s2); } .inc { color: var(--s1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">CIP HS26 · Group 105 · Premiums vs. Paychecks</p>
+    <h1>Health premiums grew almost three times faster than incomes</h1>
+    <p class="lede">Annual health insurance premium of an adult (standard model, CHF 300 deductible) compared with the
+      median taxable income in each canton, 2012–2022. Sources: FOPH priminfo premium overviews and ESTV tax statistics.
+      See also the <a href="income_dashboard.html">income dashboard</a>.</p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Dashboard controls">
+    <div class="ctl year-ctl">
+      <button class="play" id="play" aria-label="Play years">▶</button>
+      <input type="range" id="year" min="2012" max="2022" step="1" value="2022" aria-label="Year">
+      <span class="year-out" id="yearOut">2022</span>
+    </div>
+    <div class="ctl">
+      <label>Accident cover</label>
+      <div class="seg" id="cover" role="group" aria-label="Accident cover">
+        <button data-k="with" aria-pressed="true">With</button>
+        <button data-k="without" aria-pressed="false">Without</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label for="canton">Canton</label>
+      <select id="canton"><option value="">None</option></select>
+      <button class="clear" id="clear" hidden>Clear</button>
+    </div>
+  </div>
+
+  <section class="kpis" id="kpis" aria-live="polite"></section>
+
+  <div class="grid">
+    <article class="card span-12">
+      <h2>The scissors: premiums vs. income since 2012</h2>
+      <p class="sub">Index, 2012 = 100. Lines show the typical (median) canton, bands the middle 80% of cantons (P10–P90).</p>
+      <div class="legend">
+        <span><i class="line" style="background:var(--s2)"></i>Premium</span>
+        <span><i class="line" style="background:var(--s1)"></i>Median taxable income</span>
+        <span><i style="background:var(--band)"></i>Range of cantons</span>
+        <span id="selLegend" hidden><i class="line" style="background:var(--text-1)"></i><span id="selLegendName"></span> (dashed)</span>
+      </div>
+      <div id="scissors" style="height:400px"></div>
+      <p class="take" id="scissorsTake"></p>
+    </article>
+
+    <article class="card span-5">
+      <div class="card-head">
+        <h2 id="mapTitle">Premium burden</h2>
+        <div class="seg" id="tileMeasure" role="group" aria-label="Tile measure"></div>
+      </div>
+      <p class="sub" id="mapSub"></p>
+      <div id="tilemap"></div>
+      <div class="scale"><span id="scaleMin"></span><div class="bar" id="scaleBar"></div><span id="scaleMax"></span></div>
+      <p class="take">The burden is highest in the west (<b>Geneva</b>, <b>Neuchâtel</b>, <b>Vaud</b>, <b>Jura</b>) and
+        in <b>Basel-Stadt</b> and <b>Ticino</b>, and lowest in central Switzerland, where incomes are high and premiums low.</p>
+    </article>
+
+    <article class="card span-7">
+      <h2>Where cantons sit: income vs. premium</h2>
+      <p class="sub">Each bubble is a canton (size = taxpayers). Dashed lines mark equal burden. Press ▶ to watch the
+        cantons climb across the lines.</p>
+      <div id="scatter" style="height:520px"></div>
+      <p class="take">Cantons with lower incomes tend to pay <b>higher</b> premiums (r = <span id="corr"></span>), so
+        the two effects add up instead of cancelling out.</p>
+    </article>
+
+    <article class="card span-6">
+      <h2 id="dumbTitle">Burden 2012 → 2022</h2>
+      <p class="sub">Premium as % of median taxable income, sorted by how much it rose.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--context)"></i>2012</span>
+        <span><i class="dot" style="background:var(--s2)"></i><span id="dumbYear">2022</span></span>
+      </div>
+      <div id="dumbbell" style="height:620px"></div>
+      <p class="take"><b>Geneva</b> and <b>Neuchâtel</b> lost the most ground: their premiums rose while median income
+        stood still. In <b>Zug</b> and <b>Bern</b> the burden barely moved.</p>
+    </article>
+
+    <article class="card span-6">
+      <h2 id="growthTitle">Growth 2012 → 2022</h2>
+      <p class="sub">Change in premium and in median taxable income per canton, sorted by the gap between them.</p>
+      <div class="legend">
+        <span><i style="background:var(--s2)"></i>Premium</span>
+        <span><i style="background:var(--s1)"></i>Median taxable income</span>
+      </div>
+      <div id="growth" style="height:620px"></div>
+      <p class="take" id="growthTake"></p>
+    </article>
+
+    <article class="card span-12">
+      <h2>Burden by canton and year</h2>
+      <p class="sub">Premium as % of median taxable income. Cantons sorted by their burden in the last year.</p>
+      <div id="heatmap" style="height:640px"></div>
+      <p class="take">Every canton ends the decade with a higher burden than it started with. Small dips, such as 2021 → 2022 in several cantons, never undo the rise.</p>
+    </article>
+
+    <article class="card span-12">
+      <h2 id="accTitle">With vs. without accident cover</h2>
+      <p class="sub">Employees are insured against accidents through their employer and can drop accident cover from
+        their health insurance. Annual premium per canton, sorted by the premium with accident cover.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s2)"></i>With accident cover</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Without accident cover</span>
+      </div>
+      <div id="accident" style="height:380px"></div>
+      <p class="take" id="accTake"></p>
+    </article>
+  </div>
+
+  <details>
+    <summary>Show the data table for <span id="tblYear">2022</span></summary>
+    <div class="tbl-wrap"><table id="table"></table></div>
+  </details>
+
+  <section class="note">
+    <h3>How to read the burden</h3>
+    <ul>
+      <li><b>Premium</b>: average monthly premium of an adult in the standard model with CHF 300 deductible, mean over
+        all insurers and then over the premium regions of a canton (each counted equally), × 12.</li>
+      <li><b>Income</b>: median taxable income of all taxpayers (ESTV). Taxable income is income after deductions and
+        counted per tax unit, so a married couple is one unit.</li>
+      <li>The burden compares one adult's premium with one tax unit's income. It is an indicator for comparing cantons
+        and years, not the real share of a household budget. Premium subsidies are not deducted.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Sources: FOPH priminfo archive "Prämienübersicht" 2012–2022 (PDF, scraped and parsed); ESTV "Statistische Kennzahlen
+    natürliche Personen" 2012–2022. Built by <code>visualizations/build_affordability_dashboard.py</code>.
+  </footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const D = __DASHBOARD_DATA__;
+
+// ---------- data prep ----------
+const YEARS = [...new Set(D.panel.map(r => r.year))].sort((a, b) => a - b);
+const Y0 = YEARS[0], YN = YEARS.at(-1);
+const CANTONS = [...new Set(D.panel.map(r => r.c))].sort();
+const NAME = Object.fromEntries(D.panel.map(r => [r.c, r.name]));
+const byYear = {};
+for (const r of D.panel) (byYear[r.year] ||= {})[r.c] = r;
+
+const state = { year: YN, cover: 'with', tile: 'burden', sel: null };
+const B = r => r['b_' + state.cover];     // burden in %
+const P = r => r['py_' + state.cover];    // annual premium CHF
+const TILE_MEASURES = {
+  burden:  { label: 'Burden',  title: 'Premium burden', get: B, fmt: v => v.toFixed(1) + '%', short: v => v.toFixed(1) + '%',
+             sub: 'Annual premium as % of median taxable income.' },
+  premium: { label: 'Premium', title: 'Annual premium', get: P, fmt: v => chf(v), short: v => nf0.format(v),
+             sub: 'Annual premium of an adult, CHF.' },
+  income:  { label: 'Income',  title: 'Median taxable income', get: r => r.income, fmt: v => chf(v), short: v => chfk(v),
+             sub: 'Median taxable income per tax unit, CHF.' },
+};
+
+const nf0 = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 });
+const chf = v => 'CHF ' + nf0.format(v);
+const chfk = v => nf0.format(Math.round(v / 1000)) + 'k';
+const pct = v => (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+const pp = v => (v > 0 ? '+' : '') + v.toFixed(1) + ' pp';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function quantile(a, q) {
+  const s = [...a].sort((x, y) => x - y), p = (s.length - 1) * q, i = Math.floor(p);
+  return i + 1 < s.length ? s[i] + (s[i + 1] - s[i]) * (p - i) : s[i];
+}
+const median = a => quantile(a, 0.5);
+function corr(x, y) {
+  const mx = x.reduce((a, b) => a + b) / x.length, my = y.reduce((a, b) => a + b) / y.length;
+  let sxy = 0, sxx = 0, syy = 0;
+  x.forEach((v, i) => { sxy += (v - mx) * (y[i] - my); sxx += (v - mx) ** 2; syy += (y[i] - my) ** 2; });
+  return sxy / Math.sqrt(sxx * syy);
+}
+const ranks = a => { const s = a.map((v, i) => [v, i]).sort((p, q) => p[0] - q[0]), r = []; s.forEach(([, i], k) => r[i] = k + 1); return r; };
+
+// ---------- colour helpers ----------
+const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+const rgb2hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+function interp(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  const p = t * (stops.length - 1), i = Math.min(Math.floor(p), stops.length - 2), f = p - i;
+  const a = hex2rgb(stops[i]), b = hex2rgb(stops[i + 1]);
+  return rgb2hex(a.map((v, k) => v + (b[k] - v) * f));
+}
+function luminance(h) {
+  const [r, g, b] = hex2rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const seqStops = () => css('--seq').split(',').map(s => s.trim()).slice(1);
+function domain(get) {
+  const v = D.panel.map(get);
+  return [Math.min(...v), Math.max(...v)];
+}
+
+// ---------- tooltip ----------
+const tip = document.getElementById('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => { tip.style.opacity = 0; };
+function cantonTip(c, y) {
+  const r = byYear[y][c], r0 = byYear[Y0][c];
+  const rows = [
+    ['Annual premium', chf(P(r))], ['Median taxable income', chf(r.income)], ['Burden', B(r).toFixed(1) + '%'],
+    [`Burden change since ${Y0}`, pp(B(r) - B(r0))], ['Taxpayers', nf0.format(r.stpf)],
+  ];
+  return `<div class="t">${r.name} (${c}) · ${y}</div>` + rows.map(([k, v]) => `<div class="r"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+// ---------- Plotly base ----------
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const CONFIG = { displayModeBar: false, responsive: true };
+const title = t => ({ text: t, font: { color: css('--text-2'), size: 12 } });
+function axis(extra = {}) {
+  return Object.assign({
+    gridcolor: css('--grid'), linecolor: css('--axis'), zeroline: false, tickfont: { color: css('--muted'), size: 11 },
+    automargin: true, fixedrange: true,
+  }, extra);
+}
+function layout(extra = {}) {
+  return Object.assign({
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: FONT, color: css('--text-2'), size: 12 },
+    margin: { l: 8, r: 16, t: 8, b: 8 }, showlegend: false, separators: '.’',
+    hoverlabel: { bgcolor: css('--surface'), bordercolor: css('--axis'), font: { family: FONT, color: css('--text-1'), size: 13 } },
+  }, extra);
+}
+const bound = new Set();
+function onClickCanton(div, getCanton) {
+  if (bound.has(div.id)) return;
+  bound.add(div.id);
+  div.on('plotly_click', ev => { const c = getCanton(ev.points[0]); if (c) select(c); });
+}
+const yearLine = () => ({ type: 'line', x0: state.year, x1: state.year, yref: 'paper', y0: 0, y1: 1, line: { color: css('--muted'), width: 1, dash: 'dot' } });
+const yearColumn = () => ({ type: 'rect', x0: state.year - 0.5, x1: state.year + 0.5, yref: 'paper', y0: 0, y1: 1,
+  line: { color: css('--text-1'), width: 2 }, fillcolor: 'rgba(0,0,0,0)' });
+const tickName = c => c === state.sel ? `<b>${NAME[c]}</b>` : NAME[c];
+
+// ---------- controls ----------
+const yearIn = document.getElementById('year');
+const cantonSel = document.getElementById('canton');
+const clearBtn = document.getElementById('clear');
+const playBtn = document.getElementById('play');
+const coverEl = document.getElementById('cover');
+const tileEl = document.getElementById('tileMeasure');
+
+for (const c of [...CANTONS].sort((a, b) => NAME[a].localeCompare(NAME[b], 'de'))) cantonSel.add(new Option(`${NAME[c]} (${c})`, c));
+for (const [k, m] of Object.entries(TILE_MEASURES)) {
+  const b = document.createElement('button');
+  b.textContent = m.label; b.dataset.k = k;
+  b.onclick = () => { state.tile = k; renderTiles(); };
+  tileEl.appendChild(b);
+}
+coverEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+  state.cover = b.dataset.k;
+  coverEl.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderAll();
+});
+yearIn.oninput = () => setYear(+yearIn.value);
+cantonSel.onchange = () => select(cantonSel.value || null);
+clearBtn.onclick = () => select(null);
+
+let timer = null;
+playBtn.onclick = () => {
+  if (timer) return stop();
+  if (state.year === YN) setYear(Y0);
+  playBtn.textContent = '❚❚'; playBtn.setAttribute('aria-label', 'Pause');
+  timer = setInterval(() => (state.year >= YN ? stop() : setYear(state.year + 1)), 900);
+};
+function stop() { clearInterval(timer); timer = null; playBtn.textContent = '▶'; playBtn.setAttribute('aria-label', 'Play years'); }
+
+function setYear(y) {
+  state.year = y; yearIn.value = y;
+  for (const id of ['yearOut', 'tblYear', 'dumbYear']) document.getElementById(id).textContent = y;
+  renderKPIs(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderAccident(); renderTable();
+  const sc = document.getElementById('scissors'), hm = document.getElementById('heatmap');
+  if (sc.layout) Plotly.relayout(sc, { shapes: sc.layout.shapes.slice(0, -1).concat(yearLine()) });
+  if (hm.layout) Plotly.relayout(hm, { shapes: [yearColumn()] });
+}
+function select(c) {
+  state.sel = state.sel === c ? null : c;
+  cantonSel.value = state.sel || '';
+  clearBtn.hidden = !state.sel;
+  renderAll();
+}
+
+// ---------- KPIs ----------
+function renderKPIs() {
+  const rows = Object.values(byYear[state.year]), rows0 = Object.values(byYear[Y0]);
+  const bNow = median(rows.map(B)), b0 = median(rows0.map(B));
+  const idx = CANTONS.map(c => [P(byYear[state.year][c]) / P(byYear[Y0][c]), byYear[state.year][c].income / byYear[Y0][c].income]);
+  const pg = (median(idx.map(v => v[0])) - 1) * 100, ig = (median(idx.map(v => v[1])) - 1) * 100;
+  const sorted = [...rows].sort((a, b) => B(b) - B(a));
+  const tiles = [
+    { k: `Typical burden ${state.year}`, v: bNow.toFixed(1) + '%',
+      s: state.year === Y0 ? 'median of 26 cantons' : `<span class="down">▲ ${pp(bNow - b0)}</span> vs ${Y0} (${b0.toFixed(1)}%)` },
+    { k: `Growth since ${Y0}, typical canton`, v: `<span class="vs"><span class="prem">${pct(pg)}</span><small>premium</small></span>`,
+      s: `<span class="inc">${pct(ig)}</span> median taxable income` },
+    { k: 'Highest burden', v: sorted[0].name, s: B(sorted[0]).toFixed(1) + '% · ' + chf(P(sorted[0])) + ' premium' },
+    { k: 'Lowest burden', v: sorted.at(-1).name, s: B(sorted.at(-1)).toFixed(1) + '% · ' + chf(P(sorted.at(-1))) + ' premium' },
+  ];
+  if (state.sel) {
+    const r = byYear[state.year][state.sel], rank = sorted.findIndex(x => x.c === state.sel) + 1;
+    tiles[3] = { k: `${r.name} · rank ${rank} of 26 (1 = highest)`, v: B(r).toFixed(1) + '%',
+      s: `${pp(B(r) - B(byYear[Y0][state.sel]))} vs ${Y0}` };
+  }
+  document.getElementById('kpis').innerHTML = tiles.map(t =>
+    `<div class="kpi"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="s">${t.s}</div></div>`).join('');
+}
+
+// ---------- Scissors ----------
+function renderScissors() {
+  const series = (get) => {
+    const out = { mid: [], lo: [], hi: [] };
+    for (const y of YEARS) {
+      const v = CANTONS.map(c => get(byYear[y][c]) / get(byYear[Y0][c]) * 100);
+      out.mid.push(median(v)); out.lo.push(quantile(v, 0.1)); out.hi.push(quantile(v, 0.9));
+    }
+    return out;
+  };
+  const prem = series(P), inc = series(r => r.income);
+  const s1 = css('--s1'), s2 = css('--s2');
+  const band = (s, col) => [
+    { x: YEARS, y: s.lo, mode: 'lines', line: { width: 0 }, hoverinfo: 'skip' },
+    { x: YEARS, y: s.hi, mode: 'lines', line: { width: 0 }, fill: 'tonexty', fillcolor: col, hoverinfo: 'skip' },
+  ];
+  const alpha = (hex, a) => `rgba(${hex2rgb(hex).join(',')},${a})`;
+  const traces = [
+    ...band(inc, alpha(s1, 0.16)), ...band(prem, alpha(s2, 0.16)),
+    { x: YEARS, y: inc.mid, mode: 'lines+markers', line: { color: s1, width: 3 }, marker: { size: 8, color: s1, line: { color: css('--surface'), width: 2 } },
+      customdata: inc.lo.map((l, i) => [l, inc.hi[i]]),
+      hovertemplate: '<b>Median taxable income</b> %{x}<br>Index %{y:.1f}<br>Cantons P10–P90: %{customdata[0]:.1f}–%{customdata[1]:.1f}<extra></extra>' },
+    { x: YEARS, y: prem.mid, mode: 'lines+markers', line: { color: s2, width: 3 }, marker: { size: 8, color: s2, line: { color: css('--surface'), width: 2 } },
+      customdata: prem.lo.map((l, i) => [l, prem.hi[i]]),
+      hovertemplate: '<b>Premium</b> %{x}<br>Index %{y:.1f}<br>Cantons P10–P90: %{customdata[0]:.1f}–%{customdata[1]:.1f}<extra></extra>' },
+  ];
+  const ann = [
+    { x: YN, y: prem.mid.at(-1), text: `<b>Premium ${pct(prem.mid.at(-1) - 100)}</b>`, xanchor: 'left', xshift: 10, showarrow: false, font: { size: 13, color: css('--text-1') } },
+    { x: YN, y: inc.mid.at(-1), text: `<b>Income ${pct(inc.mid.at(-1) - 100)}</b>`, xanchor: 'left', xshift: 10, showarrow: false, font: { size: 13, color: css('--text-1') } },
+  ];
+  const selLegend = document.getElementById('selLegend');
+  selLegend.hidden = !state.sel;
+  if (state.sel) {
+    const c = state.sel;
+    document.getElementById('selLegendName').textContent = NAME[c];
+    for (const [get, col, lab] of [[P, s2, 'premium'], [r => r.income, s1, 'income']]) {
+      const y = YEARS.map(yy => get(byYear[yy][c]) / get(byYear[Y0][c]) * 100);
+      traces.push({ x: YEARS, y, mode: 'lines', line: { color: col, width: 2, dash: 'dash' },
+        hovertemplate: `<b>${NAME[c]} ${lab}</b> %{x}<br>Index %{y:.1f}<extra></extra>` });
+      ann.push({ x: YN, y: y.at(-1), text: `${c} ${pct(y.at(-1) - 100)}`, xanchor: 'left', xshift: 10, yshift: -16, showarrow: false,
+        font: { size: 11, color: css('--text-2') } });
+    }
+  }
+  Plotly.react('scissors', traces, layout({
+    margin: { l: 8, r: 130, t: 8, b: 8 }, hovermode: 'closest',
+    xaxis: axis({ dtick: 1, showgrid: false, range: [Y0 - 0.2, YN + 0.2] }),
+    yaxis: axis({ title: title('Index (2012 = 100)') }),
+    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, line: { color: css('--axis'), width: 1 } }, yearLine()],
+    annotations: ann,
+  }), CONFIG);
+  document.getElementById('scissorsTake').innerHTML =
+    `For the typical canton, premiums rose <b>${pct(prem.mid.at(-1) - 100)}</b> between ${Y0} and ${YN}, median taxable income only
+     <b>${pct(inc.mid.at(-1) - 100)}</b>. From ${YEARS.find((y, i) => prem.lo[i] > inc.hi[i]) ?? YN} on, the two bands no longer even overlap.`;
+}
+
+// ---------- Tile map ----------
+const TILE = 72, GAP = 6;
+function renderTiles() {
+  const m = TILE_MEASURES[state.tile], rows = byYear[state.year];
+  for (const b of tileEl.children) b.setAttribute('aria-pressed', b.dataset.k === state.tile);
+  document.getElementById('mapTitle').textContent = `${m.title} · ${state.year}`;
+  document.getElementById('mapSub').textContent = m.sub + ' Each tile is a canton, placed roughly where it sits on the map.';
+  const [lo, hi] = domain(m.get), stops = seqStops();
+  const el = document.getElementById('tilemap');
+  if (!el.firstChild) {
+    let s = `<svg viewBox="0 0 ${7 * (TILE + GAP)} ${6 * (TILE + GAP)}" role="img" aria-label="Tile map of Swiss cantons">`;
+    for (const c of CANTONS) {
+      const [col, row] = D.tiles[c], x = col * (TILE + GAP), y = row * (TILE + GAP);
+      s += `<g class="tile-g" data-c="${c}" tabindex="0" role="button" aria-label="${NAME[c]}">
+        <rect class="tile" x="${x}" y="${y}" width="${TILE}" height="${TILE}" rx="8"/>
+        <text class="ab" x="${x + TILE / 2}" y="${y + 32}" text-anchor="middle" font-size="18" font-weight="650"></text>
+        <text class="val" x="${x + TILE / 2}" y="${y + 52}" text-anchor="middle" font-size="12"></text></g>`;
+    }
+    el.innerHTML = s + '</svg>';
+    el.querySelectorAll('.tile-g').forEach(g => {
+      const c = g.dataset.c;
+      g.addEventListener('click', () => select(c));
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(c); } });
+      g.addEventListener('mousemove', e => showTip(e, cantonTip(c, state.year)));
+      g.addEventListener('mouseleave', hideTip);
+    });
+  }
+  el.querySelectorAll('.tile-g').forEach(g => {
+    const c = g.dataset.c, v = m.get(rows[c]), fill = interp(stops, (v - lo) / (hi - lo));
+    const ink = luminance(fill) > 0.35 ? '#0b0b0b' : '#ffffff';
+    g.querySelector('.tile').setAttribute('fill', fill);
+    g.querySelector('.ab').textContent = c;
+    g.querySelector('.ab').setAttribute('fill', ink);
+    const val = g.querySelector('.val');
+    val.textContent = m.short(v); val.setAttribute('fill', ink); val.setAttribute('fill-opacity', 0.85);
+    g.classList.toggle('sel', c === state.sel);
+  });
+  document.getElementById('scaleBar').style.background = `linear-gradient(90deg, ${stops.join(',')})`;
+  document.getElementById('scaleMin').textContent = m.fmt(lo);
+  document.getElementById('scaleMax').textContent = m.fmt(hi);
+}
+
+// ---------- Scatter: income vs premium ----------
+function renderScatter() {
+  const rows = Object.values(byYear[state.year]), sel = state.sel;
+  const [xlo, xhi] = domain(r => r.income), [ylo, yhi] = domain(P);
+  const xr = [xlo - (xhi - xlo) * 0.06, xhi + (xhi - xlo) * 0.08], yr = [ylo - (yhi - ylo) * 0.08, yhi + (yhi - ylo) * 0.08];
+  const byB = [...rows].sort((a, b) => B(a) - B(b));
+  const show = new Set([byB[0].c, byB[1].c, byB.at(-1).c, byB.at(-2).c, 'ZH', 'BE', 'TI', sel].filter(Boolean));
+  const maxStpf = Math.max(...D.panel.map(r => r.stpf));
+  const shapes = [], ann = [];
+  for (const b of [8, 10, 12, 14, 16, 18]) {
+    // line y = b% * x, clipped to the plot box
+    let x0 = xr[0], y0 = b / 100 * x0, x1 = xr[1], y1 = b / 100 * x1;
+    if (y0 < yr[0]) { y0 = yr[0]; x0 = y0 / (b / 100); }
+    if (y1 > yr[1]) { y1 = yr[1]; x1 = y1 / (b / 100); }
+    if (x0 >= x1) continue;
+    shapes.push({ type: 'line', x0, y0, x1, y1, line: { color: css('--axis'), width: 1, dash: 'dash' }, layer: 'below' });
+    ann.push({ x: x1, y: y1, text: `${b}%`, showarrow: false, xanchor: y1 >= yr[1] ? 'center' : 'left', yanchor: y1 >= yr[1] ? 'bottom' : 'middle',
+      xshift: y1 >= yr[1] ? 0 : 4, font: { size: 11, color: css('--muted') } });
+  }
+  Plotly.react('scatter', [{
+    x: rows.map(r => r.income), y: rows.map(P), customdata: rows.map(r => r.c),
+    mode: 'markers+text', cliponaxis: false, text: rows.map(r => show.has(r.c) ? r.c : ''), textposition: 'top center',
+    textfont: { size: 11, color: rows.map(r => r.c === sel ? css('--text-1') : css('--text-2')) },
+    marker: {
+      size: rows.map(r => r.stpf), sizemode: 'area', sizeref: 2 * maxStpf / (44 ** 2), sizemin: 6,
+      color: rows.map(r => r.c === sel ? css('--text-1') : css('--s1')), opacity: rows.map(r => !sel || r.c === sel ? 0.85 : 0.35),
+      line: { color: css('--surface'), width: 2 },
+    },
+    hovertemplate: rows.map(r => `<b>${r.name}</b><br>Income ${chf(r.income)}<br>Premium ${chf(P(r))}<br>Burden ${B(r).toFixed(1)}%<extra></extra>`),
+  }], layout({
+    margin: { l: 8, r: 28, t: 16, b: 8 },
+    xaxis: axis({ title: title('Median taxable income (CHF per year)'), tickformat: ',.0f', range: xr }),
+    yaxis: axis({ title: title('Annual premium (CHF)'), tickformat: ',.0f', range: yr }),
+    shapes, annotations: ann, transition: { duration: 500, easing: 'cubic-in-out' },
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  document.getElementById('corr').textContent = corr(rows.map(r => r.income), rows.map(P)).toFixed(2);
+}
+
+// ---------- Dumbbell: burden 2012 -> year ----------
+function renderDumbbell() {
+  const y = state.year;
+  document.getElementById('dumbTitle').textContent = `Burden ${Y0} → ${y}`;
+  const cs = [...CANTONS].sort((a, b) => (B(byYear[y][a]) - B(byYear[Y0][a])) - (B(byYear[y][b]) - B(byYear[Y0][b])));
+  const lx = [], ly = [];
+  for (const c of cs) lx.push(B(byYear[Y0][c]), B(byYear[y][c]), null), ly.push(c, c, null);
+  const tip = c => `<b>${NAME[c]}</b><br>${Y0}: ${B(byYear[Y0][c]).toFixed(1)}%<br>${y}: ${B(byYear[y][c]).toFixed(1)}%<br>Change ${pp(B(byYear[y][c]) - B(byYear[Y0][c]))}<extra></extra>`;
+  Plotly.react('dumbbell', [
+    { x: lx, y: ly, mode: 'lines', line: { color: css('--context'), width: 3 }, hoverinfo: 'skip' },
+    { x: cs.map(c => B(byYear[Y0][c])), y: cs, mode: 'markers', customdata: cs, hovertemplate: cs.map(tip),
+      marker: { size: 9, color: css('--context'), line: { color: css('--surface'), width: 2 } } },
+    { x: cs.map(c => B(byYear[y][c])), y: cs, mode: 'markers+text', customdata: cs, hovertemplate: cs.map(tip),
+      text: cs.map(c => pp(B(byYear[y][c]) - B(byYear[Y0][c]))), textposition: 'middle right', cliponaxis: false,
+      textfont: { size: 10, color: css('--muted') },
+      marker: { size: cs.map(c => c === state.sel ? 13 : 10), color: cs.map(c => c === state.sel ? css('--text-1') : css('--s2')), line: { color: css('--surface'), width: 2 } } },
+  ], layout({
+    margin: { l: 8, r: 52, t: 8, b: 8 },
+    xaxis: axis({ title: title('Premium as % of median taxable income'), ticksuffix: '%', range: [domain(B)[0] - 0.5, domain(B)[1] + 0.5] }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata || p.y));
+}
+
+// ---------- Growth bars ----------
+function renderGrowth() {
+  const y = state.year;
+  document.getElementById('growthTitle').textContent = `Growth ${Y0} → ${y}`;
+  const g = Object.fromEntries(CANTONS.map(c => [c, {
+    p: (P(byYear[y][c]) / P(byYear[Y0][c]) - 1) * 100, i: (byYear[y][c].income / byYear[Y0][c].income - 1) * 100 }]));
+  const cs = [...CANTONS].sort((a, b) => (g[a].p - g[a].i) - (g[b].p - g[b].i));
+  const ht = c => `<b>${NAME[c]}</b><br>Premium ${pct(g[c].p)}<br>Income ${pct(g[c].i)}<br>Gap ${(g[c].p - g[c].i).toFixed(1)} pp<extra></extra>`;
+  Plotly.react('growth', [
+    { type: 'bar', orientation: 'h', y: cs, x: cs.map(c => g[c].i), name: 'Income', customdata: cs, hovertemplate: cs.map(ht),
+      marker: { color: css('--s1'), line: { color: css('--surface'), width: 1 } } },
+    { type: 'bar', orientation: 'h', y: cs, x: cs.map(c => g[c].p), name: 'Premium', customdata: cs, hovertemplate: cs.map(ht),
+      marker: { color: css('--s2'), line: { color: css('--surface'), width: 1 } } },
+  ], layout({
+    barmode: 'group', bargap: 0.28, bargroupgap: 0.08,
+    xaxis: axis({ title: title('Change since 2012'), ticksuffix: '%', zeroline: true, zerolinecolor: css('--axis') }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  const faster = CANTONS.filter(c => g[c].p > g[c].i).length;
+  document.getElementById('growthTake').innerHTML = y === Y0 ? 'Move the year slider to compare growth.' :
+    `Premiums grew faster than median income in <b>${faster} of 26</b> cantons. The widest gap is in <b>${NAME[cs.at(-1)]}</b>
+     (${pct(g[cs.at(-1)].p)} vs ${pct(g[cs.at(-1)].i)}), the narrowest in <b>${NAME[cs[0]]}</b>.`;
+}
+
+// ---------- Heatmap ----------
+function renderHeatmap() {
+  const cs = [...CANTONS].sort((a, b) => B(byYear[YN][a]) - B(byYear[YN][b]));
+  const z = cs.map(c => YEARS.map(y => B(byYear[y][c])));
+  const text = cs.map(c => YEARS.map(y => B(byYear[y][c]).toFixed(1)));
+  const custom = cs.map(c => YEARS.map(y => [NAME[c], nf0.format(P(byYear[y][c])), nf0.format(byYear[y][c].income)]));
+  const stops = seqStops(), [lo, hi] = domain(B);
+  Plotly.react('heatmap', [{
+    type: 'heatmap', x: YEARS, y: cs, z, customdata: custom,
+    zmin: lo, zmax: hi, colorscale: stops.map((s, i) => [i / (stops.length - 1), s]), xgap: 2, ygap: 2,
+    colorbar: { thickness: 10, ticksuffix: '%', outlinewidth: 0, tickfont: { color: css('--muted'), size: 11 }, len: 0.6 },
+    hovertemplate: '<b>%{customdata[0]}</b> %{x}<br>Burden %{z:.1f}%<br>Premium CHF %{customdata[1]}<br>Income CHF %{customdata[2]}<extra></extra>',
+  }, {
+    // cell labels as a text layer, so each label can take the ink that contrasts with its own cell
+    x: cs.flatMap(() => YEARS), y: cs.flatMap(c => YEARS.map(() => c)), text: text.flat(), mode: 'text', hoverinfo: 'skip',
+    textfont: { size: 10, color: z.flat().map(v => luminance(interp(stops, (v - lo) / (hi - lo))) > 0.35 ? '#0b0b0b' : '#ffffff') },
+  }], layout({
+    margin: { l: 8, r: 8, t: 8, b: 8 },
+    xaxis: axis({ dtick: 1, showgrid: false, side: 'top' }),
+    yaxis: axis({ tickvals: cs, ticktext: cs.map(tickName), showgrid: false, tickfont: { color: css('--text-2'), size: 11 } }),
+    shapes: [yearColumn()],
+  }), CONFIG).then(div => onClickCanton(div, p => p.y));
+}
+
+// ---------- With vs without accident cover ----------
+function renderAccident() {
+  const y = state.year, rows = Object.values(byYear[y]).sort((a, b) => b.py_with - a.py_with), cs = rows.map(r => r.c);
+  document.getElementById('accTitle').textContent = `With vs. without accident cover · ${y}`;
+  const lx = [], ly = [];
+  for (const r of rows) lx.push(r.c, r.c, null), ly.push(r.py_without, r.py_with, null);
+  const ht = r => `<b>${r.name}</b><br>With ${chf(r.py_with)}<br>Without ${chf(r.py_without)}<br>Difference ${chf(r.py_with - r.py_without)}<extra></extra>`;
+  Plotly.react('accident', [
+    { x: lx, y: ly, mode: 'lines', line: { color: css('--context'), width: 2 }, hoverinfo: 'skip' },
+    { x: cs, y: rows.map(r => r.py_without), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: 9, color: css('--s3'), line: { color: css('--surface'), width: 2 } } },
+    { x: cs, y: rows.map(r => r.py_with), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: 9, color: css('--s2'), line: { color: css('--surface'), width: 2 } } },
+  ], layout({
+    xaxis: axis({ type: 'category', showgrid: false, tickvals: cs, ticktext: cs.map(c => c === state.sel ? `<b>${c}</b>` : c), tickfont: { color: css('--text-2'), size: 11 } }),
+    yaxis: axis({ title: title('Annual premium (CHF)'), tickformat: ',.0f' }),
+    shapes: state.sel ? [{ type: 'rect', x0: cs.indexOf(state.sel) - 0.45, x1: cs.indexOf(state.sel) + 0.45, yref: 'paper', y0: 0, y1: 1,
+      fillcolor: css('--text-1'), opacity: 0.07, line: { width: 0 } }] : [],
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  const diffPct = median(rows.map(r => (1 - r.py_without / r.py_with) * 100));
+  const rho = corr(ranks(rows.map(r => r.b_with)), ranks(rows.map(r => r.b_without)));
+  document.getElementById('accTake').innerHTML = `Dropping accident cover saves about <b>${diffPct.toFixed(1)}%</b> of the premium
+    (typical canton, ${y}). The canton ranking by burden is practically identical (rank correlation ${rho.toFixed(3)}),
+    so the choice does not change any of our conclusions.`;
+}
+
+// ---------- Table ----------
+const COLS = [
+  ['c', 'Canton'], ['name', 'Name'], ['py', 'Premium CHF/yr'], ['pm', 'CHF/month'], ['income', 'Median income CHF'],
+  ['b', 'Burden %'], ['db', `Δ burden since ${Y0}`], ['stpf', 'Taxpayers'],
+];
+let sortKey = 'b', sortDir = -1;
+function renderTable() {
+  const val = (r, k) => k === 'py' ? P(r) : k === 'pm' ? r['pm_' + state.cover] : k === 'b' ? B(r) : k === 'db' ? B(r) - B(byYear[Y0][r.c]) : r[k];
+  const rows = Object.values(byYear[state.year]).sort((a, b) => {
+    const x = val(a, sortKey), y = val(b, sortKey);
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sortDir;
+  });
+  const f = (k, v) => ['py', 'income', 'stpf'].includes(k) ? nf0.format(v) : k === 'pm' ? v.toFixed(2)
+    : k === 'b' ? v.toFixed(1) : k === 'db' ? pp(v) : v;
+  const t = document.getElementById('table');
+  t.innerHTML = `<thead><tr>${COLS.map(([k, l]) => `<th data-k="${k}">${l}${k === sortKey ? (sortDir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr></thead>`
+    + `<tbody>${rows.map(r => `<tr data-c="${r.c}" class="${r.c === state.sel ? 'sel' : ''}">${COLS.map(([k]) => `<td>${f(k, val(r, k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  t.querySelectorAll('th').forEach(th => th.onclick = () => {
+    sortDir = th.dataset.k === sortKey ? -sortDir : (['c', 'name'].includes(th.dataset.k) ? 1 : -1);
+    sortKey = th.dataset.k; renderTable();
+  });
+  t.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => select(tr.dataset.c));
+}
+
+// ---------- render all / theme ----------
+function renderAll() {
+  renderKPIs(); renderScissors(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderHeatmap(); renderAccident(); renderTable();
+}
+function retheme() { document.getElementById('tilemap').innerHTML = ''; renderAll(); }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+renderAll();
+setYear(state.year);
+</script>
+</body>
+</html>

@@ -1,7 +1,42 @@
-# Visualizations: income dashboard
+# Visualizations
 
-`income_dashboard.html` is an interactive dashboard of the income data in `data/processed/`.
-Open it in a browser (it needs internet once, to load Plotly.js from cdnjs).
+Two interactive dashboards. Open them in a browser (they need internet once, to load Plotly.js from cdnjs).
+
+| Page | Question |
+|---|---|
+| `affordability_dashboard.html` | **Premiums vs. paychecks**: how heavy is the health premium compared with income, per canton and year? |
+| `income_dashboard.html` | How much do the cantons earn, and how unequal is it? |
+
+# Affordability dashboard (premiums vs. income)
+
+Rebuild from the repository root:
+
+```bash
+python visualizations/build_affordability_dashboard.py
+```
+
+The script merges `data/processed/income_canton_year.csv` with the two premium tables
+(`priminfo_premiums_per_canton.csv` and `..._ohne_unfall.csv`, read from `data_premium/processed/`, or from
+`data/processed/` if they are moved there) on year + canton. It stops if a canton-year is missing.
+**Burden = annual premium ÷ median taxable income × 100.** Layout and charts live in `affordability_template.html`.
+
+Global controls: year slider with play button, accident cover with / without, canton picker. Clicking a canton
+in any chart selects it everywhere.
+
+| Chart | Shows |
+|---|---|
+| Key figures | Typical burden and change since 2012, premium vs. income growth, highest and lowest burden |
+| The scissors | Premium index vs. income index (2012 = 100) for the typical canton, with the P10–P90 band of cantons |
+| Tile map | Burden, premium or income per canton |
+| Income vs. premium | Bubble chart with lines of equal burden, animated by year |
+| Burden 2012 → year | Dumbbell per canton, sorted by the increase |
+| Growth 2012 → year | Premium growth vs. income growth per canton |
+| Burden heatmap | Canton × year |
+| With vs. without accident cover | Premium difference and rank correlation of the burden |
+
+A method note on the page explains the limits: one adult's premium against one tax unit's taxable income, before subsidies.
+
+# Income dashboard
 
 ## Rebuild
 
