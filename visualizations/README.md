@@ -17,7 +17,8 @@ python visualizations/build_affordability_dashboard.py
 
 The script merges `data/processed/income_canton_year.csv` with the two premium tables
 (`data/processed/priminfo_premiums_per_canton.csv` and `..._ohne_unfall.csv`, produced by
-`notebooks/priminfo_pdf_scraping.ipynb`) on year + canton. It stops if a canton-year is missing.
+`notebooks/priminfo_pdf_scraping.ipynb`) on year + canton, and adds `premiums_by_model_deductible.csv` (from
+`src/premium/premium_options.py`) for the insurance-choice charts. It stops if a canton-year is missing.
 **Burden = annual premium ÷ median taxable income × 100.** Layout and charts live in `affordability_template.html`.
 
 Global controls: year slider with play button, accident cover with / without, canton picker. Clicking a canton
@@ -33,6 +34,9 @@ in any chart selects it everywhere.
 | Growth 2012 → year | Premium growth vs. income growth per canton |
 | Burden heatmap | Canton × year |
 | With vs. without accident cover | Premium difference and rank correlation of the burden |
+| Premium by model and deductible | Annual premium per insurance model across the six deductibles, with the break-even health costs of the CHF 2,500 deductible (RQ3) |
+| Discounts shrink as premiums rise | Discount vs. the reference case per year: CHF 2,500 deductible and the three alternative models (RQ3) |
+| How far the cheapest choice lowers the burden | Burden with the reference case vs. the cheapest model with CHF 2,500 deductible, per canton (RQ3) |
 
 A method note on the page explains the limits: one adult's premium against one tax unit's taxable income, before subsidies.
 

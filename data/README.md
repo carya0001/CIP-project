@@ -21,7 +21,7 @@ data/
 |---|---|---|---|---|---|---|
 | Taxable income per canton | 2012–2022 | ESTV, *Statistische Kennzahlen direkte Bundessteuer* | Static scraping (requests + BeautifulSoup), XLSX download | Chaitanya Arya | `raw/estv/` | `processed/income_canton_year.csv`, `processed/income_canton_year_household.csv` |
 | Gross wages per large region | 2012–2022 (even years) | BFS, LSE table `px-x-0304010000_201` | PxWeb API (JSON POST) | Chaitanya Arya | `raw/bfs/` | `processed/wages_grossregion_year.csv` |
-| Health insurance premiums | 2012–2022 | BAG priminfo archive (premium PDFs) | Static scraping of the archive page + PDF parsing with pdfplumber | Alisa Bitschnau | `raw/priminfo_pdfs/`, `raw/priminfo_archiv.html`, `raw/download_log.csv` | `processed/priminfo_premiums_per_canton.csv`, `processed/priminfo_premiums_per_canton_ohne_unfall.csv` |
+| Health insurance premiums | 2012–2022 | BAG priminfo archive (premium PDFs) | Static scraping of the archive page + PDF parsing with pdfplumber | Alisa Bitschnau | `raw/priminfo_pdfs/`, `raw/priminfo_archiv.html`, `raw/download_log.csv` | `processed/priminfo_premiums_per_canton.csv`, `processed/priminfo_premiums_per_canton_ohne_unfall.csv`, `processed/premiums_by_model_deductible.csv` |
 | Health insurance premiums | 2026 | priminfo.admin.ch premium calculator | Dynamic scraping with Selenium | Jobin Joseph | `raw/priminfo_2026/priminfo_premiums_raw.csv` | – (used as scraped) |
 
 ## Raw files
@@ -73,5 +73,7 @@ CHF 444 (ZG) to CHF 771 (GE); chart in `docs/figures/premium_2026_median_by_cant
 | `wages_grossregion_year.csv` | 280 | large region × year × sex × statistic | `monthly_gross_wage_chf` |
 | `priminfo_premiums_per_canton.csv` | 286 | canton × year, 2012–2022 | `premium_month`, `premium_year` (CHF), `n_regions` – adult, standard model, CHF 300 deductible, **with** accident cover; mean over insurers, then over premium regions |
 | `priminfo_premiums_per_canton_ohne_unfall.csv` | 286 | canton × year, 2012–2022 | same, **without** accident cover |
+| `premiums_by_model_deductible.csv` | 13,650 | year × canton × model × accident cover × deductible, adults | `model` (standard, family_doctor, hmo, other), `deductible` (CHF 300–2,500), `premium_month`, `premium_year`, `n_insurers`, `n_regions`, `pct_vs_reference`, `saving_year`, `worst_case_saving`. Made by `src/premium/premium_options.py` |
+| `priminfo_premiums_2012_2022.csv` *(not in Git, ~330 MB)* | 2,922,813 | one premium per insurer, region, age group, model, accident cover and deductible | Full parse of the PDFs. Created by Step 8 of `notebooks/priminfo_pdf_scraping.ipynb` |
 
 All 286 canton-years of income and premiums match one to one; `visualizations/build_affordability_dashboard.py` stops if they do not.

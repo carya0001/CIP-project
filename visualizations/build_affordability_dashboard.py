@@ -2,7 +2,8 @@
 
 Merges the ESTV income table with the priminfo premium tables (with and without
 accident cover) per canton and year, computes the premium burden and inserts the
-data as JSON into affordability_template.html.
+data as JSON into affordability_template.html. The premiums by insurance model and
+deductible (research question 3) are added from premiums_by_model_deductible.csv.
 
 Burden = annual premium (adult, standard model, CHF 300 deductible) / median taxable income.
 
@@ -22,6 +23,10 @@ OUTPUT = HERE / "affordability_dashboard.html"
 
 PROCESSED = ROOT / "data" / "processed"
 INCOME_FILE = PROCESSED / "income_canton_year.csv"
+OPTIONS_FILE = PROCESSED / "premiums_by_model_deductible.csv"   # from src/premium/premium_options.py
+MODELS = ["standard", "family_doctor", "hmo", "other"]
+DEDUCTIBLES = [300, 500, 1000, 1500, 2000, 2500]
+ACCIDENT = {"with": "mit_unfall", "without": "ohne_unfall"}
 PREMIUM_NAMES = {
     "with": "priminfo_premiums_per_canton.csv",
     "without": "priminfo_premiums_per_canton_ohne_unfall.csv",
@@ -33,6 +38,20 @@ def find_premium_file(name):
     if not path.exists():
         raise SystemExit(f"Premium file {name} not found in {PROCESSED}")
     return path
+
+
+def premium_options():
+    """Annual premium per cover, year, canton and model, as a list over DEDUCTIBLES (null if not offered)."""
+    df = pd.read_csv(OPTIONS_FILE)
+    out = {}
+    for cover, accident in ACCIDENT.items():
+        sub = df[df["accident"] == accident]
+        wide = sub.pivot_table(index=["year", "canton", "model"], columns="deductible", values="premium_year")
+        wide = wide.reindex(columns=DEDUCTIBLES)
+        for (year, canton, model), row in wide.iterrows():
+            out.setdefault(cover, {}).setdefault(str(year), {}).setdefault(canton, {})[model] = \
+                [None if pd.isna(v) else round(v, 1) for v in row]
+    return out
 
 
 def main():
@@ -66,6 +85,8 @@ def main():
             "burden_with": "b_with", "burden_without": "b_without",
         }),
         "tiles": {c: list(pos) for c, pos in TILE_GRID.items()},
+        "options": premium_options(),
+        "deductibles": DEDUCTIBLES,
     }
 
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))

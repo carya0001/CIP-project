@@ -20,6 +20,7 @@
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
+  --s4: #eda100;
   --band: rgba(42,120,214,0.16);
   --neg: #e34948;
   --mid: #f0efec;
@@ -41,6 +42,7 @@
     --s1: #3987e5;
     --s2: #d95926;
     --s3: #199e70;
+    --s4: #c98500;
     --band: rgba(57,135,229,0.22);
     --neg: #e66767;
     --mid: #383835;
@@ -62,6 +64,7 @@
   --s1: #3987e5;
   --s2: #d95926;
   --s3: #199e70;
+  --s4: #c98500;
   --band: rgba(57,135,229,0.22);
   --neg: #e66767;
   --mid: #383835;
@@ -181,6 +184,9 @@ footer a { color: var(--text-2); }
 .vs { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
 .vs span { white-space: nowrap; }
 .prem { color: var(--s2); } .inc { color: var(--s1); }
+.section-h { grid-column: span 12; margin: 20px 0 0; }
+.section-h h2 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.section-h p { color: var(--text-2); margin: 0; max-width: 760px; }
 </style>
 </head>
 <body>
@@ -291,6 +297,41 @@ footer a { color: var(--text-2); }
       <div id="accident" style="height:380px"></div>
       <p class="take" id="accTake"></p>
     </article>
+
+    <div class="section-h">
+      <h2>Can insurance choices soften the burden?</h2>
+      <p>Adults can lower their premium with a higher deductible or an alternative insurance model, where they first go
+        to a family doctor, an HMO practice or a telemedicine line. Same averaging as above: mean over insurers, then over
+        premium regions. Without a selected canton, values are the median of the 26 cantons.</p>
+    </div>
+
+    <article class="card span-6">
+      <h2 id="optTitle">Premium by model and deductible</h2>
+      <p class="sub" id="optSub">Annual premium of an adult, CHF.</p>
+      <div class="legend" id="optLegend"></div>
+      <div id="options" style="height:420px"></div>
+      <p class="take" id="optTake"></p>
+    </article>
+
+    <article class="card span-6">
+      <h2 id="discTitle">Discounts shrink as premiums rise</h2>
+      <p class="sub" id="discSub">How much cheaper than the standard model with CHF 300 deductible, in %.</p>
+      <div class="legend" id="discLegend"></div>
+      <div id="discounts" style="height:420px"></div>
+      <p class="take" id="discTake"></p>
+    </article>
+
+    <article class="card span-12">
+      <h2 id="choiceTitle">How far the cheapest choice lowers the burden</h2>
+      <p class="sub">Premium as % of median taxable income: standard model with CHF 300 deductible vs. the cheapest
+        average model with CHF 2,500 deductible. Sorted by the standard burden.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s2)"></i>Standard model, CHF 300</span>
+        <span><i class="dot" style="background:var(--text-2)"></i>Cheapest model, CHF 2,500</span>
+      </div>
+      <div id="choice" style="height:380px"></div>
+      <p class="take" id="choiceTake"></p>
+    </article>
   </div>
 
   <details>
@@ -307,6 +348,12 @@ footer a { color: var(--text-2); }
         counted per tax unit, so a married couple is one unit.</li>
       <li>The burden compares one adult's premium with one tax unit's income. It is an indicator for comparing cantons
         and years, not the real share of a household budget. Premium subsidies are not deducted.</li>
+      <li><b>Insurance models</b>: the PDF sections "Hausarztmodell" (family doctor), "HMO" and "Weitere
+        Versicherungsmodelle" (other, mostly telemedicine). Each model is averaged over the insurers that offer it, so
+        the set of insurers differs between models. HMO is missing in a few small cantons before 2016.</li>
+      <li><b>Break-even</b>: a higher deductible pays off only if the yearly premium saving is larger than the extra
+        costs one pays oneself. Between CHF 300 and 2,500 of health costs that is 90% of the costs above CHF 300
+        (the other 10% are co-payment in both cases), so the break-even is CHF 300 + saving ÷ 0.9.</li>
     </ul>
   </section>
 
@@ -463,10 +510,12 @@ function stop() { clearInterval(timer); timer = null; playBtn.textContent = '▶
 function setYear(y) {
   state.year = y; yearIn.value = y;
   for (const id of ['yearOut', 'tblYear', 'dumbYear']) document.getElementById(id).textContent = y;
-  renderKPIs(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderAccident(); renderTable();
+  renderKPIs(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderAccident(); renderOptions(); renderChoice(); renderTable();
   const sc = document.getElementById('scissors'), hm = document.getElementById('heatmap');
   if (sc.layout) Plotly.relayout(sc, { shapes: sc.layout.shapes.slice(0, -1).concat(yearLine()) });
   if (hm.layout) Plotly.relayout(hm, { shapes: [yearColumn()] });
+  const dc = document.getElementById('discounts');
+  if (dc.layout) Plotly.relayout(dc, { shapes: [yearLine()] });
 }
 function select(c) {
   state.sel = state.sel === c ? null : c;
@@ -731,6 +780,126 @@ function renderAccident() {
     so the choice does not change any of our conclusions.`;
 }
 
+// ---------- Insurance choices (research question 3) ----------
+const DED = D.deductibles;
+const MODELS = [   // fixed colour per model, never by rank
+  { k: 'family_doctor', label: 'Family doctor', col: '--s1' },
+  { k: 'standard', label: 'Standard', col: '--s2' },
+  { k: 'hmo', label: 'HMO', col: '--s3' },
+  { k: 'other', label: 'Other (e.g. telemedicine)', col: '--s4' },
+];
+const dedLabel = d => nf0.format(d);
+// Annual premium for one model and deductible: the selected canton, or the median over the cantons that offer it.
+function optPremium(y, model, i, c = state.sel) {
+  const yr = D.options[state.cover][y];
+  if (c) return yr[c]?.[model]?.[i] ?? null;
+  const v = CANTONS.map(cc => yr[cc]?.[model]?.[i]).filter(x => x != null);
+  return v.length ? median(v) : null;
+}
+const scope = () => state.sel ? NAME[state.sel] : 'typical canton';
+const legendHtml = items => items.map(([lab, col]) => `<span><i class="line" style="background:var(${col})"></i>${lab}</span>`).join('');
+
+function renderOptions() {
+  const y = state.year;
+  document.getElementById('optTitle').textContent = `Premium by model and deductible · ${y}`;
+  document.getElementById('optSub').textContent = `Annual premium of an adult, CHF · ${scope()}.`;
+  document.getElementById('optLegend').innerHTML = legendHtml(MODELS.map(m => [m.label, m.col]));
+  const ref = optPremium(y, 'standard', 0);
+  const traces = MODELS.map(m => {
+    const v = DED.map((_, i) => optPremium(y, m.k, i));
+    return {
+      x: DED.map(dedLabel), y: v, mode: 'lines+markers', name: m.label, connectgaps: true, cliponaxis: false,
+      line: { color: css(m.col), width: 2 }, marker: { size: 8, color: css(m.col), line: { color: css('--surface'), width: 2 } },
+      customdata: v.map(p => p == null ? '' : pct((p / ref - 1) * 100)),
+      hovertemplate: `<b>${m.label}</b> · deductible CHF %{x}<br>CHF %{y:,.0f} per year<br>%{customdata} vs standard CHF 300<extra></extra>`,
+    };
+  });
+  // direct labels at the right end, nudged apart so they never overlap
+  const ends = MODELS.map((m, i) => ({ m, y: traces[i].y.at(-1) })).filter(e => e.y != null).sort((a, b) => a.y - b.y);
+  const all = traces.flatMap(t => t.y).filter(v => v != null), span = Math.max(...all) - Math.min(...all), gap = span * 0.06;
+  ends.forEach((e, i) => { e.ly = i && e.y - ends[i - 1].ly < gap ? ends[i - 1].ly + gap : e.y; });
+  Plotly.react('options', traces, layout({
+    margin: { l: 8, r: innerWidth < 520 ? 100 : 150, t: 8, b: 8 }, hovermode: 'closest',
+    xaxis: axis({ type: 'category', showgrid: false, title: title('Deductible (CHF per year)') }),
+    yaxis: axis({ title: title('Annual premium (CHF)'), tickformat: ',.0f' }),
+    annotations: ends.map(e => ({ x: dedLabel(DED.at(-1)), y: e.ly, text: e.m.label.replace(' (e.g. telemedicine)', ''), xanchor: 'left', xshift: 10,
+      showarrow: false, font: { size: 12, color: css('--text-2') } })),
+  }), CONFIG);
+  const s2500 = ref - optPremium(y, 'standard', DED.length - 1), hmo = optPremium(y, 'hmo', 0);
+  document.getElementById('optTake').innerHTML =
+    `In the standard model, the CHF 2,500 deductible saves <b>${chf(s2500)}</b> a year (${scope()}). It pays off only if the
+     year's health costs stay below about <b>${chf(300 + s2500 / 0.9)}</b>; above that, the extra deductible costs more than
+     it saved.` + (hmo ? ` The HMO model is <b>${((1 - hmo / ref) * 100).toFixed(1)}%</b> cheaper without any extra deductible.` : '');
+}
+
+const DISCOUNTS = [
+  { label: 'Standard, CHF 2,500', model: 'standard', i: DED.length - 1, col: '--s2' },
+  { label: 'Family doctor, CHF 300', model: 'family_doctor', i: 0, col: '--s1' },
+  { label: 'HMO, CHF 300', model: 'hmo', i: 0, col: '--s3' },
+  { label: 'Other, CHF 300', model: 'other', i: 0, col: '--s4' },
+];
+function renderDiscounts() {
+  document.getElementById('discSub').textContent = `How much cheaper than the standard model with CHF 300 deductible, in % · ${scope()}.`;
+  document.getElementById('discLegend').innerHTML = legendHtml(DISCOUNTS.map(d => [d.label, d.col]));
+  // discount per canton first, then the median, so a canton without HMO in one year does not shift the others
+  const disc = (y, d) => {
+    const one = c => { const r = optPremium(y, 'standard', 0, c), p = optPremium(y, d.model, d.i, c); return r && p ? (1 - p / r) * 100 : null; };
+    if (state.sel) return one(state.sel);
+    const v = CANTONS.map(one).filter(x => x != null);
+    return v.length ? median(v) : null;
+  };
+  const traces = DISCOUNTS.map(d => {
+    const v = YEARS.map(y => disc(y, d));
+    return { x: YEARS, y: v, mode: 'lines+markers', name: d.label, connectgaps: false,
+      line: { color: css(d.col), width: 2 }, marker: { size: 7, color: css(d.col), line: { color: css('--surface'), width: 2 } },
+      hovertemplate: `<b>${d.label}</b> %{x}<br>%{y:.1f}% cheaper<extra></extra>` };
+  });
+  Plotly.react('discounts', traces, layout({
+    margin: { l: 8, r: 16, t: 8, b: 8 }, hovermode: 'closest',
+    xaxis: axis({ dtick: 1, showgrid: false, range: [Y0 - 0.3, YN + 0.3] }),
+    yaxis: axis({ title: title('Cheaper than the reference (%)'), ticksuffix: '%', rangemode: 'tozero' }),
+    shapes: [yearLine()],
+  }), CONFIG);
+  const chfSave = y => optPremium(y, 'standard', 0) - optPremium(y, 'standard', DED.length - 1);
+  const d0 = traces[0].y[0], dN = traces[0].y.at(-1), h0 = traces[2].y[0], hN = traces[2].y.at(-1);
+  document.getElementById('discTake').innerHTML =
+    `The CHF 2,500 deductible saves almost the same amount in francs every year (${chf(chfSave(Y0))} in ${Y0}, ${chf(chfSave(YN))} in ${YN}),
+     in line with the legal cap of 70% of the extra CHF 2,200 risk. Because premiums rose, that is a shrinking share:
+     <b>${d0.toFixed(0)}% → ${dN.toFixed(0)}%</b>.` + (h0 != null && hN != null ? ` The HMO discount also fell, from ${h0.toFixed(0)}% to ${hN.toFixed(0)}%.` : '');
+}
+
+function renderChoice() {
+  const y = state.year, last = DED.length - 1;
+  document.getElementById('choiceTitle').textContent = `How far the cheapest choice lowers the burden · ${y}`;
+  const rows = CANTONS.map(c => {
+    const opts = D.options[state.cover][y][c], inc = byYear[y][c].income;
+    const best = MODELS.map(m => [m, opts[m.k]?.[last]]).filter(([, v]) => v != null).sort((a, b) => a[1] - b[1])[0];
+    return { c, ref: opts.standard[0] / inc * 100, best: best[1] / inc * 100, model: best[0].label, prem: best[1], refPrem: opts.standard[0] };
+  }).sort((a, b) => b.ref - a.ref);
+  const cs = rows.map(r => r.c), lx = [], ly = [];
+  for (const r of rows) lx.push(r.c, r.c, null), ly.push(r.best, r.ref, null);
+  const ht = r => `<b>${NAME[r.c]}</b><br>Standard, CHF 300: ${r.ref.toFixed(1)}% (${chf(r.refPrem)})<br>${r.model}, CHF 2,500: ${r.best.toFixed(1)}% (${chf(r.prem)})<extra></extra>`;
+  Plotly.react('choice', [
+    { x: lx, y: ly, mode: 'lines', line: { color: css('--context'), width: 2 }, hoverinfo: 'skip' },
+    { x: cs, y: rows.map(r => r.best), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: cs.map(c => c === state.sel ? 12 : 9), color: css('--text-2'), line: { color: css('--surface'), width: 2 } } },
+    { x: cs, y: rows.map(r => r.ref), mode: 'markers', customdata: cs, hovertemplate: rows.map(ht),
+      marker: { size: cs.map(c => c === state.sel ? 12 : 9), color: css('--s2'), line: { color: css('--surface'), width: 2 } } },
+  ], layout({
+    xaxis: axis({ type: 'category', showgrid: false, tickvals: cs, ticktext: cs.map(c => c === state.sel ? `<b>${c}</b>` : c), tickfont: { color: css('--text-2'), size: 11 } }),
+    yaxis: axis({ title: title('Premium as % of median taxable income'), ticksuffix: '%', rangemode: 'tozero' }),
+    shapes: state.sel ? [{ type: 'rect', x0: cs.indexOf(state.sel) - 0.45, x1: cs.indexOf(state.sel) + 0.45, yref: 'paper', y0: 0, y1: 1,
+      fillcolor: css('--text-1'), opacity: 0.07, line: { width: 0 } }] : [],
+  }), CONFIG).then(div => onClickCanton(div, p => p.customdata));
+  const mRef = median(rows.map(r => r.ref)), mBest = median(rows.map(r => r.best));
+  const lowRef = Math.min(...rows.map(r => r.ref)), above = rows.filter(r => r.best > lowRef);
+  document.getElementById('choiceTake').innerHTML =
+    `For the typical canton, the cheapest choice lowers the burden from <b>${mRef.toFixed(1)}%</b> to <b>${mBest.toFixed(1)}%</b>,
+     and it only pays off for people who rarely need care. Even the cheapest choice still costs a larger share of income in
+     <b>${above.length} of 26</b> cantons (most in ${NAME[rows[0].c]}, ${rows[0].best.toFixed(1)}%) than the standard premium in
+     <b>${NAME[rows.at(-1).c]}</b> (${lowRef.toFixed(1)}%): where you live matters more than how you insure.`;
+}
+
 // ---------- Table ----------
 const COLS = [
   ['c', 'Canton'], ['name', 'Name'], ['py', 'Premium CHF/yr'], ['pm', 'CHF/month'], ['income', 'Median income CHF'],
@@ -757,7 +926,7 @@ function renderTable() {
 
 // ---------- render all / theme ----------
 function renderAll() {
-  renderKPIs(); renderScissors(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderHeatmap(); renderAccident(); renderTable();
+  renderKPIs(); renderScissors(); renderTiles(); renderScatter(); renderDumbbell(); renderGrowth(); renderHeatmap(); renderAccident(); renderOptions(); renderDiscounts(); renderChoice(); renderTable();
 }
 function retheme() { document.getElementById('tilemap').innerHTML = ''; renderAll(); }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);

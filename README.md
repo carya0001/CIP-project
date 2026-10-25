@@ -9,6 +9,7 @@ Team: Alisa Bitschnau, Chaitanya Arya, Jobin Joseph. See `docs/` for the feasibi
 |---|---|
 | `data/` | All raw and processed data. **`data/README.md` is the data catalog**: every file, its source, method and who collected it |
 | `src/income/` | Income pipeline (ESTV scraping, BFS API, cleaning) |
+| `src/premium/` | Premiums by insurance model and deductible (research question 3) |
 | `notebooks/` | `priminfo_pdf_scraping.ipynb` (premiums 2012–2022), `income_checks.ipynb` (income sanity checks) |
 | `visualizations/` | Interactive dashboards: premiums vs. income (`affordability_dashboard.html`) and income (`income_dashboard.html`) |
 | `docs/` | Project description, feasibility study, team agreement, `figures/` |
@@ -88,6 +89,32 @@ Code: `notebooks/priminfo_pdf_scraping.ipynb`.
 
 **Output:** `data/processed/priminfo_premiums_per_canton.csv` (286 rows) and `..._ohne_unfall.csv` (same, without accident cover).
 
+### Insurance models and deductibles (research question 3, script by Chaitanya Arya)
+
+`src/premium/premium_options.py` reads the full table from Step 8 of the notebook
+(`data/processed/priminfo_premiums_2012_2022.csv`, 2.9 million premium values). That table is about 330 MB, so it is
+not in Git; run Steps 1–8 of the notebook to create it.
+
+```bash
+python src/premium/premium_options.py
+```
+
+**Steps:**
+1. Keeps adults and the four models: standard, family doctor, HMO, and other (mostly telemedicine). The tariffs for workers posted abroad ("Entsandte") are left out.
+2. Runs the cleaning checks:
+   - gaps
+   - data types
+   - ranges: positive premiums, valid deductibles, premiums falling with a higher deductible, lower without accident cover
+   - outliers (3·IQR, flagged and kept)
+3. Averages the same way as the reference case.
+4. Adds the difference to the reference case as enrichment.
+
+**Output:** `data/processed/premiums_by_model_deductible.csv`, 13,650 rows: year × canton × model × accident cover × deductible.
+
+**Findings from the checks:**
+- The only tariff that rises with a higher deductible is Helsana group's **BeneFit** at CHF 1,500 (1,018 of 148,242 tariffs). It is printed like this in the official PDFs, so it is kept.
+- HMO is missing in GL and VS in some years before 2016.
+
 ## Premium data 2026 (Jobin Joseph)
 
 Dynamic scraping of the priminfo premium calculator with Selenium. The same profile was queried for the capital's postal code in each of the 26 cantons: born 1988, CHF 300 deductible, with accident cover, standard model.
@@ -105,4 +132,4 @@ python visualizations/build_affordability_dashboard.py
 python visualizations/build_income_dashboard.py
 ```
 
-The affordability dashboard merges income and premiums 2012–2022. Its burden measure is the annual premium divided by the median taxable income.
+The affordability dashboard merges income and premiums 2012–2022. Its burden measure is the annual premium divided by the median taxable income. A second section compares insurance models and deductibles (research question 3).
