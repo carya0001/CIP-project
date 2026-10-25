@@ -1,7 +1,25 @@
 # CIP HS26 – Group 105: Premiums vs. Paychecks
 
-Health insurance affordability across Swiss cantons, 2012–2022.
+Health insurance affordability across Swiss cantons, 2012–2022, plus a 2026 premium snapshot.
 Team: Alisa Bitschnau, Chaitanya Arya, Jobin Joseph. See `docs/` for the feasibility study.
+
+## Repository structure
+
+| Folder | Content |
+|---|---|
+| `data/` | All raw and processed data. **`data/README.md` is the data catalog**: every file, its source, method and who collected it |
+| `src/income/` | Income pipeline (ESTV scraping, BFS API, cleaning) |
+| `notebooks/` | `priminfo_pdf_scraping.ipynb` (premiums 2012–2022), `income_checks.ipynb` (income sanity checks) |
+| `visualizations/` | Interactive dashboards: premiums vs. income (`affordability_dashboard.html`) and income (`income_dashboard.html`) |
+| `docs/` | Project description, feasibility study, team agreement, `figures/` |
+
+## Data at a glance
+
+| Data | Years | Method | Collected by |
+|---|---|---|---|
+| Taxable income per canton (ESTV) + regional wages (BFS) | 2012–2022 | Static scraping + API | Chaitanya Arya |
+| Health insurance premiums per canton (priminfo PDFs) | 2012–2022 | Static scraping + PDF parsing | Alisa Bitschnau |
+| Health insurance premiums per insurer, capital of each canton (priminfo calculator) | 2026 | Dynamic scraping (Selenium) | Jobin Joseph |
 
 ## Setup
 
@@ -59,6 +77,32 @@ The course requires the repository to be named `CIP_HS26_105` (convention `CIP_[
 git remote set-url origin https://github.com/carya0001/CIP_HS26_105.git
 ```
 
-## Premium data
+## Premium data 2012–2022 (Alisa Bitschnau)
 
-*(to be added)*
+Code: `notebooks/priminfo_pdf_scraping.ipynb`.
+
+1. Checks `robots.txt`, downloads the BAG priminfo archive page (`data/raw/priminfo_archiv.html`) and collects the links to the yearly premium PDFs with BeautifulSoup.
+2. Downloads `praemien_2012.pdf` … `praemien_2022.pdf` to `data/raw/priminfo_pdfs/` with a pause between requests. Every request is logged in `data/raw/download_log.csv`.
+3. Parses all PDFs with pdfplumber, line by line, keeping model, canton, age group and region from the page header. Lines that cannot be read are counted and listed, never dropped silently.
+4. Reduces the result to one premium per canton and year for a **reference case**: standard model, adults, CHF 300 deductible, with accident cover. The mean is taken over insurers, then over premium regions.
+
+**Output:** `data/processed/priminfo_premiums_per_canton.csv` (286 rows) and `..._ohne_unfall.csv` (same, without accident cover).
+
+## Premium data 2026 (Jobin Joseph)
+
+Dynamic scraping of the priminfo premium calculator with Selenium. The same profile was queried for the capital's postal code in each of the 26 cantons: born 1988, CHF 300 deductible, with accident cover, standard model.
+
+**Output:** `data/raw/priminfo_2026/priminfo_premiums_raw.csv` (628 rows, one per insurer offer). Column descriptions are in `data/README.md`.
+
+The profile matches the 2012–2022 reference case, but it covers only the capital's premium region, so it is a snapshot rather than a continuation of the time series. The Selenium script itself is not in the repository yet.
+
+## Visualizations
+
+See `visualizations/README.md`. Rebuild with:
+
+```bash
+python visualizations/build_affordability_dashboard.py
+python visualizations/build_income_dashboard.py
+```
+
+The affordability dashboard merges income and premiums 2012–2022. Its burden measure is the annual premium divided by the median taxable income.
