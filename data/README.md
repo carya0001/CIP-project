@@ -50,7 +50,7 @@ data/
 Code: `notebooks/priminfo_pdf_scraping.ipynb`.
 
 ### `raw/priminfo_2026/` – Premiums 2026
-`priminfo_premiums_raw.csv`, 628 rows: one row per insurer offer in each canton's main town, scraped from the priminfo premium calculator.
+`priminfo_premiums_raw.csv`, 628 rows: one row per insurer offer in each canton's main town, scraped from the priminfo premium calculator. Code: `Code/scrape_health_insurance_premiums.py`. The script saves to `data/priminfo_premiums_raw.csv`; the file was moved here afterwards. The calculator showed next year's premiums at the time of the scrape (October 2026), so the values are most likely the **2027** premiums; this still has to be confirmed.
 
 | Column | Meaning |
 |---|---|

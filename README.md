@@ -10,6 +10,7 @@ Team: Alisa Bitschnau, Chaitanya Arya, Jobin Joseph. See `docs/` for the feasibi
 | `data/` | All raw and processed data. **`data/README.md` is the data catalog**: every file, its source, method and who collected it |
 | `src/income/` | Income pipeline (ESTV scraping, BFS API, cleaning) |
 | `src/premium/` | Premiums by insurance model and deductible (research question 3) |
+| `Code/` | Selenium scraper for the current premiums (Jobin Joseph) |
 | `notebooks/` | `priminfo_pdf_scraping.ipynb` (premiums 2012–2022), `income_checks.ipynb` (income sanity checks) |
 | `visualizations/` | Interactive dashboards: premiums vs. income (`affordability_dashboard.html`) and income (`income_dashboard.html`) |
 | `docs/` | Project description, feasibility study, team agreement, `figures/` |
@@ -117,11 +118,23 @@ python src/premium/premium_options.py
 
 ## Premium data 2026 (Jobin Joseph)
 
-Dynamic scraping of the priminfo premium calculator with Selenium. The same profile was queried for the capital's postal code in each of the 26 cantons: born 1988, CHF 300 deductible, with accident cover, standard model.
+Code: `Code/scrape_health_insurance_premiums.py` (needs Google Chrome).
+
+Dynamic scraping of the priminfo premium calculator with Selenium. The calculator is a JavaScript form, so the script fills it in like a user:
+1. Types the postal code and picks it from the typeahead list.
+2. Enters the birth year.
+3. Picks the deductible from the dropdown.
+4. Ticks accident cover.
+5. Selects the insurance model.
+6. Clicks "calculate" and reads the results table.
+
+The same profile was queried for the capital's postal code in each of the 26 cantons: born 1988, CHF 300 deductible, with accident cover, standard model. The first part of the script documents the exploration of the BFS and ESTV sources and a first manual run for Bern.
 
 **Output:** `data/raw/priminfo_2026/priminfo_premiums_raw.csv` (628 rows, one per insurer offer). Column descriptions are in `data/README.md`.
 
-The profile matches the 2012–2022 reference case, but it covers only the capital's premium region, so it is a snapshot rather than a continuation of the time series. The Selenium script itself is not in the repository yet.
+The profile matches the 2012–2022 reference case, but it covers only the capital's premium region, so it is a snapshot rather than a continuation of the time series.
+
+**Open point – premium year:** the calculator shows next year's premiums as soon as they are published at the end of September. The CSV was scraped in October 2026, so it most likely holds the **2027** premiums, not 2026. The manual test run in the script also labels its result `premium_year = 2027`. This needs to be confirmed before the data is called "2026" in the report.
 
 ## Visualizations
 
