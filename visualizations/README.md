@@ -7,6 +7,8 @@ Two interactive dashboards. Open them in a browser (they need internet once, to 
 | `affordability_dashboard.html` | **Premiums vs. paychecks**: how heavy is the health premium compared with income, per canton and year? |
 | `income_dashboard.html` | How much do the cantons earn, and how unequal is it? |
 
+`report_figures.py` draws the four static figures of the project documentation (`docs/figures/report_fig*.png`) from the same data.
+
 # Affordability dashboard (premiums vs. income)
 
 Rebuild from the repository root:

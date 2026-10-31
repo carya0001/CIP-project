@@ -13,7 +13,7 @@ Team: Alisa Bitschnau, Chaitanya Arya, Jobin Joseph. See `docs/` for the feasibi
 | `Code/` | Selenium scraper for the current premiums (Jobin Joseph) |
 | `notebooks/` | `priminfo_pdf_scraping.ipynb` (premiums 2012–2022), `income_checks.ipynb` (income sanity checks) |
 | `visualizations/` | Interactive dashboards: premiums vs. income (`affordability_dashboard.html`) and income (`income_dashboard.html`) |
-| `docs/` | Project description, feasibility study, team agreement, `figures/` |
+| `docs/` | Project documentation (`CIP_HS26_105_Project_Documentation.docx`), project description, feasibility study, team agreement, `figures/` |
 
 ## Data at a glance
 
@@ -143,6 +143,7 @@ See `visualizations/README.md`. Rebuild with:
 ```bash
 python visualizations/build_affordability_dashboard.py
 python visualizations/build_income_dashboard.py
+python visualizations/report_figures.py   # static figures for the report (docs/figures/)
 ```
 
 The affordability dashboard merges income and premiums 2012–2022. Its burden measure is the annual premium divided by the median taxable income. A second section compares insurance models and deductibles (research question 3).
